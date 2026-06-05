@@ -304,6 +304,59 @@ const std::string& data_dir()
     return g_data_dir;
 }
 
+bool migrate_legacy_orcaslicer_data_dir()
+{
+    namespace fs = boost::filesystem;
+    if (g_data_dir.empty()) return false;
+    fs::path new_dir(g_data_dir);
+
+    // Destination already has content (config.ini, system/, user/...) —
+    // user has been onboarded into the new location, leave it alone.
+    auto has_real_content = [&] {
+        if (!fs::exists(new_dir)) return false;
+        for (auto it = fs::directory_iterator(new_dir), end = fs::directory_iterator(); it != end; ++it) {
+            const std::string n = it->path().filename().string();
+            if (n == "." || n == "..") continue;
+            return true;
+        }
+        return false;
+    };
+    if (has_real_content()) return false;
+
+    fs::path legacy = new_dir.parent_path() / "OrcaSlicer";
+    if (!fs::exists(legacy) || !fs::is_directory(legacy)) return false;
+
+    try {
+        fs::create_directories(new_dir);
+        for (fs::recursive_directory_iterator it(legacy), end; it != end; ++it) {
+            fs::path rel = fs::relative(it->path(), legacy);
+            fs::path dst = new_dir / rel;
+            if (fs::is_directory(it->status())) {
+                fs::create_directories(dst);
+            } else {
+                if (!dst.parent_path().empty()) fs::create_directories(dst.parent_path());
+                fs::copy_file(it->path(), dst, fs::copy_options::overwrite_existing);
+            }
+        }
+        // AppConfig writes/reads "<SLIC3R_APP_KEY>.conf|.ini" — rename the
+        // legacy "OrcaSlicer.{conf,ini}" we just copied so the rebranded
+        // binary picks up the user's settings on first read.
+        for (const std::string& ext : { std::string(".conf"), std::string(".ini") }) {
+            fs::path src_cfg = new_dir / ("OrcaSlicer" + ext);
+            fs::path dst_cfg = new_dir / (std::string(SLIC3R_APP_KEY) + ext);
+            if (fs::exists(src_cfg) && !fs::exists(dst_cfg)) {
+                fs::rename(src_cfg, dst_cfg);
+            }
+        }
+        BOOST_LOG_TRIVIAL(info) << "config migration: copied " << legacy.string()
+                                << " -> " << new_dir.string();
+        return true;
+    } catch (const std::exception& ex) {
+        BOOST_LOG_TRIVIAL(warning) << "config migration failed: " << ex.what();
+        return false;
+    }
+}
+
 std::string custom_shapes_dir()
 {
     return (boost::filesystem::path(g_data_dir) / "shapes").string();

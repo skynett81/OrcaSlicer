@@ -184,6 +184,15 @@ void set_data_dir(const std::string &path);
 // Return a full path to the GUI resource files.
 const std::string& data_dir();
 
+// One-shot migration: if the configured data_dir() looks fresh (missing
+// or empty) and a legacy OrcaSlicer config exists alongside it (same
+// parent directory), copy the legacy tree over so existing users don't
+// lose their printer/filament/process selections on first launch of
+// the rebranded binary. Safe to call multiple times — returns false
+// when there is nothing to migrate or the destination is already
+// populated.
+bool migrate_legacy_orcaslicer_data_dir();
+
 // BBL: true: succeed create or dir exists; false: fail to create
 bool makedir(const std::string path);
 

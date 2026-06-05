@@ -1331,6 +1331,9 @@ int CLI::run(int argc, char **argv)
 #endif
                     BOOST_LOG_TRIVIAL(info) << "forge-slicer: data_dir defaulted to " << Slic3r::data_dir();
                 }
+                // Pull the legacy ~/.config/OrcaSlicer tree across if this
+                // is the first launch under the rebranded app key.
+                Slic3r::migrate_legacy_orcaslicer_data_dir();
                 const std::string load_err = headless_app_config.load();
                 if (!load_err.empty()) {
                     BOOST_LOG_TRIVIAL(warning) << "forge-slicer: AppConfig::load returned: " << load_err;

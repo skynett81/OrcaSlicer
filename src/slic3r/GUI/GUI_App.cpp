@@ -2338,6 +2338,11 @@ void GUI_App::init_app_config()
                 boost::filesystem::create_directory(data_dir_path);
             }
         }
+        // 3DPrintForge Slicer rebrand: pull the legacy ~/.config/OrcaSlicer
+        // (or platform equivalent) tree into the new app-key location on
+        // first launch so existing users keep their printer/filament
+        // selections.
+        Slic3r::migrate_legacy_orcaslicer_data_dir();
 
         // Change current dirtory of application
 
