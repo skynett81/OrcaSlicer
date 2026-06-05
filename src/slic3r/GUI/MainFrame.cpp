@@ -41,6 +41,7 @@
 #include "../Utils/Process.hpp"
 #include "format.hpp"
 #include "ForgeLibraryDialog.hpp"
+#include "ForgeOnboardingDialog.hpp"
 // BBS
 #include "PartPlate.hpp"
 #include "Preferences.hpp"
@@ -3297,6 +3298,13 @@ void MainFrame::init_menubar_as_editor()
     // the topbar next to Help on non-macOS builds, mirroring the
     // m_menubar branch further down for macOS.
     auto* forge_menu_linux = new wxMenu();
+    append_menu_item(forge_menu_linux, wxID_ANY, _L("Choose Printers..."),
+        _L("Pick which printers to install (replaces the blank Setup Wizard)"),
+        [this](wxCommandEvent&) {
+            Slic3r::GUI::ForgeOnboardingDialog dlg(this);
+            dlg.ShowModal();
+        }, "", nullptr,
+        [this]() { return true; }, this);
     append_menu_item(forge_menu_linux, wxID_ANY, _L("Forge Library..."),
         _L("Browse 3DPrintForge's parametric model generators"),
         [this](wxCommandEvent&) {

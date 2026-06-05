@@ -24,6 +24,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/AboutDialog.hpp
     GUI/ForgeLibraryDialog.cpp
     GUI/ForgeLibraryDialog.hpp
+    GUI/ForgeOnboardingDialog.cpp
+    GUI/ForgeOnboardingDialog.hpp
     GUI/AmsMappingPopup.cpp
     GUI/AmsMappingPopup.hpp
     GUI/AMSMaterialsSetting.cpp
