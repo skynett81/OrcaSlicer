@@ -167,6 +167,12 @@ option(SLIC3R_BUILD_SANDBOXES   "Build development sandboxes" OFF)
 option(BUILD_TESTS       "Build unit tests" OFF)
 option(ORCA_TOOLS       "Build Orca tools" OFF)
 
+# forge-slicer REST service (skynett81 fork). When ON the embedded
+# cpp-httplib server in src/forge is built and linked into OrcaSlicer,
+# exposed at runtime via --rest_port. Default OFF so upstream behavior
+# is untouched.
+option(ENABLE_FORGE_REST "Build the forge-slicer REST service" OFF)
+
 if (FLATPAK)
     set(SLIC3R_FHS ON CACHE BOOL "" FORCE)
     set(SLIC3R_DESKTOP_INTEGRATION OFF CACHE BOOL "" FORCE)

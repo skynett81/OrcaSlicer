@@ -95,6 +95,11 @@ using namespace nlohmann;
 #include <unistd.h>
 #endif
 
+#ifdef ENABLE_FORGE_REST
+    #include "forge/rest_server.hpp"
+    #include <thread>
+#endif
+
 #ifdef SLIC3R_GUI
     #include "slic3r/GUI/GUI_Init.hpp"
 #endif /* SLIC3R_GUI */
@@ -1276,17 +1281,33 @@ int CLI::run(int argc, char **argv)
     float old_max_radius = 0.f, old_height_to_rod = 0.f, old_height_to_lid = 0.f;
     std::vector<double> old_max_layer_height, old_min_layer_height;
     std::string outfile_dir              =  m_config.opt_string("outputdir", true);
-    // forge-slicer REST service (skynett81 fork): read CLI flags. The
-    // embedded server is wired in step 2; here we only surface the
-    // parsed values. See src/forge/INTEGRATION.md.
+    // forge-slicer REST service (skynett81 fork): when --rest_port > 0
+    // we boot the embedded HTTP server in a detached thread so the
+    // normal CLI/GUI pipeline still runs. Gated by ENABLE_FORGE_REST
+    // so upstream builds compile unchanged.
     const int                                   rest_port                  = m_config.option<ConfigOptionInt>("rest_port", true)->value;
     const std::string                          &rest_bind                  = m_config.opt_string("rest_bind", true);
     const std::string                          &rest_token                 = m_config.opt_string("rest_token", true);
+#ifdef ENABLE_FORGE_REST
     if (rest_port > 0) {
-        BOOST_LOG_TRIVIAL(info) << "forge-slicer: REST flag detected (port=" << rest_port
-                                << ", bind=" << rest_bind
-                                << ", token=" << (rest_token.empty() ? "<none>" : "<set>") << ")";
+        BOOST_LOG_TRIVIAL(info) << "forge-slicer: starting REST service on "
+                                << rest_bind << ":" << rest_port
+                                << " (auth=" << (rest_token.empty() ? "none" : "bearer") << ")";
+        std::thread([port = rest_port, bind = rest_bind, token = rest_token]() {
+            try {
+                forge_slicer::start(port, bind, token);
+            } catch (const std::exception& ex) {
+                BOOST_LOG_TRIVIAL(error) << "forge-slicer: REST service crashed: " << ex.what();
+            }
+        }).detach();
     }
+#else
+    if (rest_port > 0) {
+        BOOST_LOG_TRIVIAL(warning) << "forge-slicer: --rest_port ignored (binary built without -DENABLE_FORGE_REST=ON)";
+    }
+    (void)rest_bind;
+    (void)rest_token;
+#endif
     const std::vector<std::string>              &load_configs               = m_config.option<ConfigOptionStrings>("load_settings", true)->values;
     const std::vector<std::string>              &uptodate_configs          = m_config.option<ConfigOptionStrings>("uptodate_settings", true)->values;
     const std::vector<std::string>              &uptodate_filaments          = m_config.option<ConfigOptionStrings>("uptodate_filaments", true)->values;

@@ -21,6 +21,8 @@
 // /api/slice etc. by hooking into your existing PrintObject /
 // GCode/CWriter pipelines.
 
+#include "rest_server.hpp"
+
 #include "httplib.h"
 #include <nlohmann/json.hpp>
 #include <atomic>

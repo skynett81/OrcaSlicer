@@ -13,6 +13,10 @@ find_package(libnoise REQUIRED)
 
 add_subdirectory(libslic3r)
 
+if (ENABLE_FORGE_REST)
+    add_subdirectory(forge)
+endif ()
+
 if (SLIC3R_GUI)
     add_subdirectory(glad)
     # imgui, imguizmo, and hidapi are now included from deps_src
@@ -137,6 +141,10 @@ if (NOT WIN32 AND NOT APPLE)
 endif ()
 
 target_link_libraries(OrcaSlicer libslic3r cereal::cereal)
+if (ENABLE_FORGE_REST)
+    target_link_libraries(OrcaSlicer forge_slicer_rest)
+    target_compile_definitions(OrcaSlicer PRIVATE ENABLE_FORGE_REST)
+endif ()
 # target_include_directories(OrcaSlicer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/slic3r)
 if (APPLE)
 #    add_compile_options(-stdlib=libc++)
