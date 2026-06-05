@@ -48,16 +48,20 @@ jobs:
       - name: Install build prerequisites
         run: |
           sudo apt-get update
+          # wxWidgets, Boost, CGAL, OpenVDB, TBB, eigen3 etc. are all
+          # built from source by deps/CMakeLists.txt, so the apt list
+          # is only the system-level stuff those vendored builds link
+          # against (X/GL/GTK/glib/curl/openssl) plus toolchain.
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build build-essential pkg-config ccache \
-            libboost-all-dev libwxgtk-gl3.2-dev libwxbase3.2-dev \
+            cmake ninja-build build-essential pkg-config ccache git \
             libgtk-3-dev libgl1-mesa-dev libegl1-mesa-dev \
             libcurl4-openssl-dev libssl-dev libudev-dev \
-            libxxf86vm-dev libgmp-dev libmpfr-dev \
-            libdbus-1-dev libsoup-3.0-dev libtbb-dev libnoise-dev \
-            libcgal-dev libcgal-qt5-dev libopenvdb-dev \
-            libeigen3-dev libfreetype-dev libpng-dev libjpeg-dev \
-            libwebkit2gtk-4.1-dev libgstreamer-plugins-base1.0-dev
+            libxxf86vm-dev libdbus-1-dev \
+            libwebkit2gtk-4.1-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libxkbcommon-dev libwayland-dev \
+            libnotify-dev libsm-dev libsecret-1-dev \
+            libsoup-3.0-dev autoconf
 
       - name: Configure ccache
         run: |
