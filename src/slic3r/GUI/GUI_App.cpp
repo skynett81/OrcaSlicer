@@ -2,6 +2,7 @@
 #include "OrcaCloudServiceAgent.hpp"
 #include "libslic3r/Technologies.hpp"
 #include "GUI_App.hpp"
+#include "ForgeOnboardingDialog.hpp"
 
 #ifdef ENABLE_FORGE_REST
 #include "../../forge/rest_server.hpp"
@@ -3064,6 +3065,22 @@ bool GUI_App::on_init_inner()
     // Close the splash now that the main UI is visible.
     if (scrn) { scrn->Destroy(); scrn = nullptr; }
     BOOST_LOG_TRIVIAL(info) << "main frame firstly shown";
+
+    // 3DPrintForge: jump straight to the 3D editor tab. The default
+    // Home tab is a webkit2gtk landing page that renders blank on
+    // NVIDIA + Wayland — that's why the user kept seeing a black panel.
+    mainframe->select_tab(size_t(MainFrame::tp3DEditor));
+
+    // First-launch onboarding: if AppConfig has no installed printer
+    // models (set_variant has never been called), open the native
+    // picker so the user has something to set up before they hit the
+    // slicer. CallAfter defers it until the main loop is pumping.
+    if (app_config && app_config->vendors().empty()) {
+        CallAfter([this]() {
+            Slic3r::GUI::ForgeOnboardingDialog dlg(mainframe);
+            dlg.ShowModal();
+        });
+    }
 
 //#if BBL_HAS_FIRST_PAGE
     //BBS: set tp3DEditor firstly
