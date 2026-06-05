@@ -48,6 +48,29 @@ cmake --build build --target forge_slicer_rest
 orca-slicer --rest-port 8765 --rest-bind 127.0.0.1
 ```
 
+Note: OrcaSlicer's CLI parser maps the underscore-form keys
+(`rest_port`) registered in PrintConfig.cpp to dash-form flags on
+the command line. Both `--rest-port` and `--rest_port` are *not*
+accepted — only the dash form works.
+
+## Verified endpoints
+
+After building with `-DENABLE_FORGE_REST=ON` (verified 2026-06-05):
+
+```bash
+$ orca-slicer --rest-port 8765 &
+[forge-slicer] REST service listening on 127.0.0.1:8765
+
+$ curl -s http://127.0.0.1:8765/api/health
+{"ok":true,"service":"forge-slicer","started_at":"...","upstream":"OrcaSlicer 2.3.1","version":"1.10.2-skynett.1"}
+
+$ curl -s http://127.0.0.1:8765/api/version
+{"api":1,"version":"1.10.2-skynett.1"}
+
+$ curl -s 'http://127.0.0.1:8765/api/profiles?kind=printer'
+{"profiles":[]}     # empty until set_preset_bundle() is wired in
+```
+
 ## Files
 
 - `rest_server.cpp` — cpp-httplib server, endpoint handlers
