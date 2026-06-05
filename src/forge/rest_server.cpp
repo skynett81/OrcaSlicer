@@ -50,11 +50,12 @@
 #include "libslic3r/Model.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/GCode/GCodeProcessor.hpp"
+#include "libslic3r_version.h"
 
 namespace forge_slicer {
 
 static std::string SERVICE_VERSION = "1.10.2-skynett.1";
-static std::string UPSTREAM_VERSION = "OrcaSlicer 2.3.1";
+static std::string UPSTREAM_VERSION = SLIC3R_APP_NAME " " SoftFever_VERSION;
 
 static std::atomic<bool> g_started{false};
 static std::string g_started_at;

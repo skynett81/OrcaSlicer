@@ -691,8 +691,9 @@ static void generic_exception_handle()
         // and terminate the app so it is at least certain to happen now.
         BOOST_LOG_TRIVIAL(error) << boost::format("std::bad_alloc exception: %1%") % ex.what();
         flush_logs();
-        wxString errmsg = wxString::Format(_L("OrcaSlicer will terminate because of running out of memory. "
-                                              "It may be a bug. It will be appreciated if you report the issue to our team."));
+        wxString errmsg = wxString::Format(_L("%s will terminate because of running out of memory. "
+                                              "It may be a bug. It will be appreciated if you report the issue to our team."),
+                                              SLIC3R_APP_NAME);
         wxMessageBox(errmsg + "\n\n" + wxString(ex.what()), _L("Fatal error"), wxOK | wxICON_ERROR);
 
         std::terminate();
@@ -700,15 +701,16 @@ static void generic_exception_handle()
      } catch (const boost::io::bad_format_string& ex) {
      	BOOST_LOG_TRIVIAL(error) << boost::format("Uncaught exception: %1%") % ex.what();
         	flush_logs();
-        wxString errmsg = _L("OrcaSlicer will terminate because of a localization error. "
-                             "It will be appreciated if you report the specific scenario this issue happened.");
+        wxString errmsg = wxString::Format(_L("%s will terminate because of a localization error. "
+                             "It will be appreciated if you report the specific scenario this issue happened."),
+                             SLIC3R_APP_NAME);
         wxMessageBox(errmsg + "\n\n" + wxString(ex.what()), _L("Critical error"), wxOK | wxICON_ERROR);
         std::terminate();
         //throw;
     } catch (const std::exception& ex) {
         BOOST_LOG_TRIVIAL(error) << boost::format("Uncaught exception: %1%") % ex.what();
         flush_logs();
-        wxLogError(format_wxstr(_L("OrcaSlicer got an unhandled exception: %1%"), ex.what()));
+        wxLogError(format_wxstr(_L("%1% got an unhandled exception: %2%"), SLIC3R_APP_NAME, ex.what()));
         throw;
     }
 //#endif

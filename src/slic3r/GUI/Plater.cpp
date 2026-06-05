@@ -17193,7 +17193,8 @@ void Plater::pop_warning_and_go_to_device_page(wxString printer_name, PrinterWar
                                        printer_name);
         } else {
             content = wxString::Format(
-                _L("OrcaSlicer can't connect to %s. Please check if the printer is powered on and connected to the network."), printer_name);
+                _L("%s can't connect to %s. Please check if the printer is powered on and connected to the network."),
+                SLIC3R_APP_NAME, printer_name);
         }
     } else if (type == PrinterWarningType::INCONSISTENT) {
         content = wxString::Format(_L("The currently connected printer on the device page is not %s. Please switch to %s before syncing."), printer_name, printer_name);
