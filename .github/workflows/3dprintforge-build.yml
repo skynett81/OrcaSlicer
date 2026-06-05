@@ -1,0 +1,127 @@
+name: 3DPrintForge Slicer build (Linux)
+
+# Focused CI for the 3DPrintForge Slicer fork. Builds the rebranded
+# binary with ENABLE_FORGE_REST=ON on Ubuntu, caches the heavy vendored
+# deps, and uploads the binary as a workflow artifact. On tag push it
+# also drafts a GitHub Release with the artifact attached.
+#
+# The upstream OrcaSlicer build_all.yml / build_orca.yml workflows are
+# left in place but expect secrets (ORCA_UPDATER_SIG_KEY etc.) and
+# multi-platform cross-builds we don't run here, so they will likely
+# fail noisily on a fork. This workflow is the source of truth for
+# 3DPrintForge Slicer CI.
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+    paths:
+      - 'src/**'
+      - 'deps/**'
+      - 'deps_src/**'
+      - 'resources/**'
+      - 'version.inc'
+      - '**/CMakeLists.txt'
+      - '.github/workflows/3dprintforge-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'deps/**'
+      - 'deps_src/**'
+      - 'version.inc'
+      - '**/CMakeLists.txt'
+      - '.github/workflows/3dprintforge-build.yml'
+  workflow_dispatch: {}
+
+jobs:
+  linux:
+    name: Build (Ubuntu 24.04)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          lfs: false
+
+      - name: Install build prerequisites
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build build-essential pkg-config ccache \
+            libboost-all-dev libwxgtk-gl3.2-dev libwxbase3.2-dev \
+            libgtk-3-dev libgl1-mesa-dev libegl1-mesa-dev \
+            libcurl4-openssl-dev libssl-dev libudev-dev \
+            libxxf86vm-dev libgmp-dev libmpfr-dev \
+            libdbus-1-dev libsoup-3.0-dev libtbb-dev libnoise-dev \
+            libcgal-dev libcgal-qt5-dev libopenvdb-dev \
+            libeigen3-dev libfreetype-dev libpng-dev libjpeg-dev \
+            libwebkit2gtk-4.1-dev libgstreamer-plugins-base1.0-dev
+
+      - name: Configure ccache
+        run: |
+          ccache -M 4G
+          ccache -p
+
+      - name: Cache vendored deps
+        id: cache-deps
+        uses: actions/cache@v4
+        with:
+          path: deps/build/destdir
+          key: linux-deps-${{ hashFiles('deps/CMakeLists.txt', 'deps/*/CMakeLists.txt') }}
+          restore-keys: |
+            linux-deps-
+
+      - name: Build vendored deps
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        working-directory: deps
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DDESTDIR="$PWD/build/destdir"
+          cmake --build build -- -j $(nproc)
+
+      - name: Configure 3DPrintForge Slicer
+        run: |
+          cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="$PWD/deps/build/destdir/usr/local" \
+            -DENABLE_FORGE_REST=ON
+
+      - name: Build 3DPrintForge Slicer
+        run: cmake --build build --target OrcaSlicer -- -j $(nproc)
+
+      - name: Smoke-test the binary
+        run: |
+          ls -lh build/src/3dprintforge-slicer
+          # The binary cannot start a GUI in CI, but it should print
+          # the version without exiting non-zero. We use a 5s timeout
+          # because wxWidgets init touches dconf which can hang.
+          timeout 5 build/src/3dprintforge-slicer --help || true
+          # Verify the REST symbol is linked in.
+          nm -C build/src/3dprintforge-slicer | grep 'forge_slicer::start' || \
+            (echo 'forge_slicer::start symbol missing from binary' && exit 1)
+
+      - name: Stage artifact tree
+        run: |
+          mkdir -p dist/3dprintforge-slicer
+          cp build/src/3dprintforge-slicer dist/3dprintforge-slicer/
+          cp -r resources dist/3dprintforge-slicer/resources
+          cp LICENSE.txt dist/3dprintforge-slicer/ || true
+          cp src/forge/README.md dist/3dprintforge-slicer/REST_README.md || true
+          cd dist
+          tar czf 3dprintforge-slicer-linux-x86_64.tar.gz 3dprintforge-slicer
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: 3dprintforge-slicer-linux-x86_64
+          path: dist/3dprintforge-slicer-linux-x86_64.tar.gz
+          retention-days: 30
+
+      - name: Draft GitHub Release on tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: dist/3dprintforge-slicer-linux-x86_64.tar.gz
