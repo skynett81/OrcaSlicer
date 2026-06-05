@@ -22,9 +22,11 @@ public:
 private:
     wxListBox*    m_list = nullptr;
     wxButton*     m_btn_open = nullptr;
+    wxButton*     m_btn_generate = nullptr;
     wxStaticText* m_hint = nullptr;
 
     void on_open_in_browser(wxCommandEvent& evt);
+    void on_generate_default(wxCommandEvent& evt);
 };
 
 }} // namespace Slic3r::GUI

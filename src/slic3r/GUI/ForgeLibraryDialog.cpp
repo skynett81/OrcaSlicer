@@ -1,12 +1,20 @@
 #include "ForgeLibraryDialog.hpp"
 #include "I18N.hpp"
+#include "GUI_App.hpp"
+#include "Plater.hpp"
 
 #include "libslic3r_version.h"
 
+#include <wx/arrstr.h>
 #include <wx/button.h>
+#include <wx/filename.h>
+#include <wx/msgdlg.h>
 #include <wx/sizer.h>
 #include <wx/stattext.h>
+#include <wx/stdpaths.h>
 #include <wx/utils.h>
+
+#include <chrono>
 
 namespace Slic3r { namespace GUI {
 
@@ -116,8 +124,10 @@ ForgeLibraryDialog::ForgeLibraryDialog(wxWindow* parent)
     root->Add(m_list, 1, wxEXPAND | wxLEFT | wxRIGHT, 12);
 
     auto* buttons = new wxBoxSizer(wxHORIZONTAL);
+    m_btn_generate = new wxButton(this, wxID_ANY, _L("Generate with defaults"));
     m_btn_open = new wxButton(this, wxID_OPEN, _L("Open in 3DPrintForge"));
     auto* close = new wxButton(this, wxID_CLOSE, _L("Close"));
+    buttons->Add(m_btn_generate, 0, wxRIGHT, 8);
     buttons->Add(m_btn_open, 0, wxRIGHT, 8);
     buttons->AddStretchSpacer(1);
     buttons->Add(close, 0);
@@ -125,10 +135,68 @@ ForgeLibraryDialog::ForgeLibraryDialog(wxWindow* parent)
 
     SetSizer(root);
 
+    m_btn_generate->Bind(wxEVT_BUTTON, &ForgeLibraryDialog::on_generate_default, this);
     m_btn_open->Bind(wxEVT_BUTTON, &ForgeLibraryDialog::on_open_in_browser, this);
     close->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { EndModal(wxID_CLOSE); });
 
     CentreOnParent();
+}
+
+void ForgeLibraryDialog::on_generate_default(wxCommandEvent& /*evt*/)
+{
+    int idx = m_list->GetSelection();
+    if (idx < 0 || idx >= static_cast<int>(std::size(kGenerators))) return;
+    const auto& g = kGenerators[idx];
+
+    // Drop the generated 3MF in the system temp dir under a generator-
+    // specific filename so successive runs don't clobber each other.
+    auto ts = std::chrono::duration_cast<std::chrono::milliseconds>(
+                  std::chrono::system_clock::now().time_since_epoch()).count();
+    wxFileName tmp(wxStandardPaths::Get().GetTempDir(),
+                   wxString::Format("forge-%s-%lld.3mf", g.id, static_cast<long long>(ts)));
+    const wxString out_path = tmp.GetFullPath();
+
+    const wxString url = wxString::Format(
+        "%s/api/model-forge/%s/generate-3mf", dashboard_url(), g.id);
+    // curl is bridged via wxExecute so we don't pull in OpenSSL just to
+    // call our own dashboard. Phase 3 will replace this with cpp-httplib
+    // + OpenSSL once we wire that into the build. Empty JSON body uses
+    // each generator's documented defaults.
+    wxString cmd = wxString::Format(
+        "curl -ks -X POST %s -H \"Content-Type: application/json\" "
+        "-d \"{}\" --max-time 60 -o %s",
+        url, out_path);
+
+    {
+        wxBusyCursor wait;
+        wxArrayString out;
+        wxArrayString err;
+        long exit_code = wxExecute(cmd, out, err, wxEXEC_SYNC | wxEXEC_HIDE_CONSOLE);
+        if (exit_code != 0) {
+            wxMessageBox(
+                wxString::Format(_L("Failed to generate %s. curl exit code: %ld\n\n"
+                                    "Is 3DPrintForge running at %s?"),
+                                 g.label, exit_code, dashboard_url()),
+                _L("Generation failed"), wxOK | wxICON_ERROR, this);
+            return;
+        }
+    }
+
+    // Sanity-check the file before handing it to the slicer pipeline —
+    // an empty 3MF means the server responded but produced no output.
+    if (!tmp.FileExists() || tmp.GetSize() == 0) {
+        wxMessageBox(_L("Generator returned an empty file. Check the 3DPrintForge log."),
+                     _L("Generation failed"), wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    // Loading replaces no existing plate items — we hand the path to
+    // Plater::load_files which appends the model to the current scene.
+    Plater* plater = wxGetApp().plater();
+    if (plater) {
+        plater->load_files(wxArrayString{1, &out_path});
+    }
+    EndModal(wxID_OK);
 }
 
 void ForgeLibraryDialog::on_open_in_browser(wxCommandEvent& /*evt*/)
