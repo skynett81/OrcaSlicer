@@ -12,12 +12,14 @@ request.
 |---|---|---|
 | 1 | `GET /api/health` | Wired |
 | 1 | `GET /api/version` | Wired |
-| 2 | `GET /api/profiles[?kind=...]` | Wired — needs `set_preset_bundle()` call from host |
-| 2 | `GET /api/profiles/{id}` | Wired — needs `set_preset_bundle()` call from host |
-| 2 | `GET /api/printers` | Wired — needs `set_preset_bundle()` call from host |
-| 3 | `POST /api/slice` | Returns 501 |
+| 2 | `GET /api/profiles[?kind=...]` | Wired |
+| 2 | `GET /api/profiles/{id}` | Wired |
+| 2 | `GET /api/printers` | Wired |
+| 3 | `POST /api/slice` | **Wired** — slices STL/3MF/OBJ via real Slic3r::Print pipeline |
+| 3 | `GET /api/jobs` | Wired — list all jobs sliced this session |
+| 3 | `GET /api/jobs/{id}/gcode` | Wired — download the gcode file |
 | 3 | `POST /api/preview` | Returns 501 |
-| 4 | `GET /api/jobs/{id}/gcode` | Not wired |
+| 4 | SSE progress on `/api/slice` | Not wired |
 
 ## PresetBundle injection
 

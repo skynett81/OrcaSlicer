@@ -27,15 +27,25 @@
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <ctime>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
 #include <iostream>
+#include <map>
 #include <mutex>
+#include <random>
 #include <shared_mutex>
+#include <sstream>
 #include <string>
 #include <vector>
 
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Model.hpp"
+#include "libslic3r/Print.hpp"
+#include "libslic3r/GCode/GCodeProcessor.hpp"
 
 namespace forge_slicer {
 
@@ -62,6 +72,32 @@ void set_preset_bundle(Slic3r::PresetBundle* bundle) {
     } else {
         std::cout << "[forge-slicer] PresetBundle detached (null)" << std::endl;
     }
+}
+
+// Job tracking for POST /api/slice → GET /api/jobs/:id/gcode.
+struct SliceJob {
+    std::string gcode_path;
+    std::size_t gcode_size = 0;
+    double      estimated_time_s = 0.0;
+    std::vector<double> filament_used_g;
+    std::string created_at;
+};
+static std::mutex g_jobs_mutex;
+static std::map<std::string, SliceJob> g_jobs;
+
+static std::string make_job_id() {
+    static std::mt19937_64 rng{std::random_device{}()};
+    std::uniform_int_distribution<uint64_t> dist;
+    std::ostringstream ss;
+    ss << std::hex << std::setw(16) << std::setfill('0') << dist(rng);
+    return ss.str();
+}
+
+static std::filesystem::path forge_tmp_root() {
+    auto p = std::filesystem::temp_directory_path() / "forge-slicer";
+    std::error_code ec;
+    std::filesystem::create_directories(p, ec);
+    return p;
 }
 
 // Convert one Preset (printer/filament/process) into a JSON document.
@@ -216,14 +252,167 @@ void start(int port, const std::string& bind, const std::string& token) {
         res.set_content(j.dump(), "application/json");
     });
 
-    // ── Phase 3 placeholder — implement when you're ready ─────────────
     svr->Post("/api/slice", [require_auth](const httplib::Request& req, httplib::Response& res) {
         if (!require_auth(req, res)) return;
-        json err;
-        err["error"] = "slicing not implemented yet — phase 3";
-        err["code"] = "ERR_NOT_IMPLEMENTED";
-        res.status = 501;
-        res.set_content(err.dump(), "application/json");
+        // Serialize slicing — only one job at a time. Holds the lock for the
+        // whole pipeline (load → apply → process → export). For real
+        // concurrency we'd need a queue + worker threads, but v1 keeps it
+        // simple and prevents PresetBundle mutation races.
+        static std::mutex slice_mutex;
+        std::lock_guard<std::mutex> slice_lock(slice_mutex);
+
+        try {
+            if (!req.is_multipart_form_data())
+                throw std::runtime_error("expected multipart/form-data");
+
+            auto pick = [&](const char* name) -> std::string {
+                auto it = req.files.find(name);
+                return it != req.files.end() ? it->second.content : std::string();
+            };
+
+            std::string model_bytes      = pick("model");
+            std::string printer_id       = pick("printer_id");
+            std::string process_id       = pick("process_id");
+            std::string filament_ids_raw = pick("filament_ids");
+            if (model_bytes.empty()) throw std::runtime_error("missing 'model' file");
+            if (printer_id.empty())  throw std::runtime_error("missing 'printer_id'");
+            if (process_id.empty())  throw std::runtime_error("missing 'process_id'");
+
+            std::vector<std::string> filament_ids;
+            if (!filament_ids_raw.empty()) {
+                auto arr = json::parse(filament_ids_raw);
+                for (const auto& f : arr) filament_ids.push_back(f.get<std::string>());
+            }
+            if (filament_ids.empty())
+                throw std::runtime_error("'filament_ids' must be a non-empty JSON array");
+
+            std::string job_id = make_job_id();
+            auto root          = forge_tmp_root();
+            auto job_dir       = root / job_id;
+            std::filesystem::create_directories(job_dir);
+
+            // Preserve the uploaded filename's extension so OrcaSlicer's
+            // format dispatcher picks the right reader.
+            std::string upload_name = req.files.find("model")->second.filename;
+            std::string ext         = ".stl";
+            if (auto dot = upload_name.rfind('.'); dot != std::string::npos)
+                ext = upload_name.substr(dot);
+            auto model_path = job_dir / ("input" + ext);
+            {
+                std::ofstream out(model_path, std::ios::binary);
+                out.write(model_bytes.data(), static_cast<std::streamsize>(model_bytes.size()));
+            }
+            auto gcode_path = root / (job_id + ".gcode");
+
+            // Apply presets and snapshot the resulting config so we can drop
+            // the bundle lock before the long-running process() call.
+            Slic3r::DynamicPrintConfig config;
+            {
+                std::unique_lock<std::shared_mutex> bundle_lock(g_bundle_mutex);
+                if (!g_bundle) throw std::runtime_error("no PresetBundle injected");
+
+                if (!g_bundle->printers.select_preset_by_name(printer_id, true))
+                    throw std::runtime_error("unknown printer_id: " + printer_id);
+                if (!g_bundle->prints.select_preset_by_name(process_id, true))
+                    throw std::runtime_error("unknown process_id: " + process_id);
+                for (const auto& fid : filament_ids) {
+                    if (!g_bundle->filaments.select_preset_by_name(fid, true))
+                        throw std::runtime_error("unknown filament_id: " + fid);
+                }
+                config = g_bundle->full_config(true);
+            }
+
+            Slic3r::Model model = Slic3r::Model::read_from_file(model_path.string());
+
+            Slic3r::Print print;
+            print.apply(model, config);
+            print.process();
+
+            Slic3r::GCodeProcessorResult gcode_result;
+            std::string out_path = print.export_gcode(gcode_path.string(), &gcode_result, nullptr);
+
+            std::size_t gcode_size = 0;
+            std::error_code ec;
+            gcode_size = std::filesystem::file_size(out_path, ec);
+
+            const double estimated_time_s = gcode_result.print_statistics.modes[0].time;
+
+            std::vector<double> filament_used_g;
+            for (std::size_t i = 0; i < gcode_result.filament_densities.size(); ++i) {
+                double vol_mm3 = 0.0;
+                auto it = gcode_result.print_statistics.total_volumes_per_extruder.find(i);
+                if (it != gcode_result.print_statistics.total_volumes_per_extruder.end())
+                    vol_mm3 = it->second;
+                filament_used_g.push_back((vol_mm3 / 1000.0) * gcode_result.filament_densities[i]);
+            }
+
+            {
+                std::lock_guard<std::mutex> lock(g_jobs_mutex);
+                g_jobs[job_id] = SliceJob{out_path, gcode_size, estimated_time_s, filament_used_g, iso_now()};
+            }
+
+            json resp;
+            resp["ok"] = true;
+            resp["job_id"] = job_id;
+            resp["gcode_path"] = out_path;
+            resp["gcode_size"] = gcode_size;
+            resp["estimated_time_s"] = estimated_time_s;
+            resp["filament_used_g"] = filament_used_g;
+            res.set_content(resp.dump(), "application/json");
+        } catch (const std::exception& ex) {
+            json err;
+            err["error"] = ex.what();
+            err["code"] = "ERR_SLICE_FAILED";
+            res.status = 500;
+            res.set_content(err.dump(), "application/json");
+        }
+    });
+
+    svr->Get(R"(/api/jobs/([^/]+)/gcode)", [require_auth](const httplib::Request& req, httplib::Response& res) {
+        if (!require_auth(req, res)) return;
+        std::string job_id = req.matches[1];
+        std::string path;
+        {
+            std::lock_guard<std::mutex> lock(g_jobs_mutex);
+            auto it = g_jobs.find(job_id);
+            if (it == g_jobs.end()) {
+                json err; err["error"] = "job not found"; err["code"] = "ERR_JOB_NOT_FOUND";
+                res.status = 404;
+                res.set_content(err.dump(), "application/json");
+                return;
+            }
+            path = it->second.gcode_path;
+        }
+        std::ifstream f(path, std::ios::binary);
+        if (!f) {
+            json err; err["error"] = "gcode file missing on disk"; err["code"] = "ERR_GCODE_MISSING";
+            res.status = 410;
+            res.set_content(err.dump(), "application/json");
+            return;
+        }
+        std::ostringstream buf;
+        buf << f.rdbuf();
+        res.set_content(buf.str(), "text/x-gcode");
+    });
+
+    svr->Get("/api/jobs", [require_auth](const httplib::Request& req, httplib::Response& res) {
+        if (!require_auth(req, res)) return;
+        json arr = json::array();
+        {
+            std::lock_guard<std::mutex> lock(g_jobs_mutex);
+            for (const auto& [id, j] : g_jobs) {
+                json o;
+                o["job_id"]            = id;
+                o["gcode_path"]        = j.gcode_path;
+                o["gcode_size"]        = j.gcode_size;
+                o["estimated_time_s"]  = j.estimated_time_s;
+                o["filament_used_g"]   = j.filament_used_g;
+                o["created_at"]        = j.created_at;
+                arr.push_back(o);
+            }
+        }
+        json resp; resp["jobs"] = arr;
+        res.set_content(resp.dump(), "application/json");
     });
 
     svr->Post("/api/preview", [require_auth](const httplib::Request& req, httplib::Response& res) {
