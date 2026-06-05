@@ -1321,13 +1321,13 @@ int CLI::run(int argc, char **argv)
                 if (Slic3r::data_dir().empty()) {
 #ifdef _WIN32
                     const char* base = std::getenv("APPDATA");
-                    Slic3r::set_data_dir(std::string(base ? base : ".") + "/OrcaSlicer");
+                    Slic3r::set_data_dir(std::string(base ? base : ".") + "/" SLIC3R_APP_KEY);
 #else
                     const char* xdg  = std::getenv("XDG_CONFIG_HOME");
                     const char* home = std::getenv("HOME");
                     const std::string root = xdg ? std::string(xdg)
                                                  : (std::string(home ? home : ".") + "/.config");
-                    Slic3r::set_data_dir(root + "/OrcaSlicer");
+                    Slic3r::set_data_dir(root + "/" SLIC3R_APP_KEY);
 #endif
                     BOOST_LOG_TRIVIAL(info) << "forge-slicer: data_dir defaulted to " << Slic3r::data_dir();
                 }

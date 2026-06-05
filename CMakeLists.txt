@@ -894,7 +894,7 @@ if(BUILD_TESTS)
 endif()
 
 if (NOT WIN32 AND NOT APPLE)
-    set(SLIC3R_APP_CMD "orca-slicer")
+    set(SLIC3R_APP_CMD "3dprintforge-slicer")
     configure_file(${LIBDIR}/dev-utils/platform/unix/build_appimage.sh.in ${CMAKE_CURRENT_BINARY_DIR}/build_appimage.sh USE_SOURCE_PERMISSIONS @ONLY)
 endif()
 
