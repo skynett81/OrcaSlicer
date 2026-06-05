@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#009789"/>
+      <stop offset="1" stop-color="#00665B"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square background, modern flat -->
+  <rect x="16" y="16" width="480" height="480" rx="96" ry="96" fill="url(#bg)"/>
+
+  <!-- Build plate grid in white, slightly transparent -->
+  <g transform="translate(256 256)" stroke="#FFFFFF" stroke-width="14"
+     stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.95">
+    <!-- Vertical bars -->
+    <line x1="-72" y1="-92" x2="-72" y2="92"/>
+    <line x1="0"   y1="-92" x2="0"   y2="92"/>
+    <line x1="72"  y1="-92" x2="72"  y2="92"/>
+    <!-- Horizontal bars (top, middle, bottom) -->
+    <line x1="-92" y1="-72" x2="92" y2="-72"/>
+    <line x1="-92" y1="0"   x2="92" y2="0"/>
+    <line x1="-92" y1="72"  x2="92" y2="72"/>
+  </g>
+
+  <!-- Build plate dots at intersections -->
+  <g transform="translate(256 256)" fill="#FFFFFF">
+    <circle cx="-72" cy="-72" r="9"/>
+    <circle cx="0"   cy="-72" r="9"/>
+    <circle cx="72"  cy="-72" r="9"/>
+    <circle cx="-72" cy="0"   r="9"/>
+    <circle cx="0"   cy="0"   r="9"/>
+    <circle cx="72"  cy="0"   r="9"/>
+    <circle cx="-72" cy="72"  r="9"/>
+    <circle cx="0"   cy="72"  r="9"/>
+    <circle cx="72"  cy="72"  r="9"/>
+  </g>
+
+  <!-- "3D" label below the grid in lighter weight -->
+  <text x="256" y="430" text-anchor="middle"
+        font-family="-apple-system, Segoe UI, Roboto, sans-serif"
+        font-weight="800" font-size="64" fill="#FFFFFF" letter-spacing="3">3D</text>
+</svg>
