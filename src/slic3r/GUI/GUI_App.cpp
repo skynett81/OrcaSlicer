@@ -5473,6 +5473,13 @@ void maybe_attach_updater_signature(Http& http, const std::string& canonical_que
 
 void GUI_App::check_new_version_sf(bool show_tips, int by_user)
 {
+    // 3DPrintForge Slicer: the upstream updater hits the SoftFever
+    // OrcaSlicer release feed and prompts the user to download
+    // 'Orca Slicer X.Y.Z-alpha'. That's confusing for users of the
+    // rebranded fork and would replace the binary with upstream. We
+    // disable the auto-check entirely; a future 3DPrintForge updater
+    // can replace this when the release pipeline ships one.
+    if (!by_user) return;
     AppConfig* app_config = wxGetApp().app_config;
     bool       check_stable_only = app_config->get_bool("check_stable_update_only");
     auto version_check_url = app_config->version_check_url();
