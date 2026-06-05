@@ -27,10 +27,13 @@
 #include <nlohmann/json.hpp>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstdio>
 #include <ctime>
+#include <deque>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -39,6 +42,7 @@
 #include <shared_mutex>
 #include <sstream>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "libslic3r/Preset.hpp"
@@ -84,6 +88,177 @@ struct SliceJob {
 };
 static std::mutex g_jobs_mutex;
 static std::map<std::string, SliceJob> g_jobs;
+
+// Channel used by /api/slice/stream — slicing thread pushes progress
+// events, the chunked content provider drains them and writes SSE.
+struct ChannelEvent {
+    std::string kind;     // "progress", "done", "error"
+    std::string payload;  // JSON string (without surrounding "data: ")
+};
+class StatusChannel {
+public:
+    void push(ChannelEvent ev) {
+        std::lock_guard<std::mutex> lk(mtx_);
+        q_.push_back(std::move(ev));
+        cv_.notify_one();
+    }
+    // Returns false if the channel was closed before an event arrived.
+    bool pop(ChannelEvent& out, std::chrono::milliseconds timeout) {
+        std::unique_lock<std::mutex> lk(mtx_);
+        if (!cv_.wait_for(lk, timeout, [this]{ return !q_.empty() || closed_; }))
+            return false;
+        if (q_.empty()) return false;
+        out = std::move(q_.front());
+        q_.pop_front();
+        return true;
+    }
+    void close() {
+        std::lock_guard<std::mutex> lk(mtx_);
+        closed_ = true;
+        cv_.notify_all();
+    }
+    bool is_closed_and_drained() const {
+        std::lock_guard<std::mutex> lk(mtx_);
+        return closed_ && q_.empty();
+    }
+private:
+    mutable std::mutex mtx_;
+    std::condition_variable cv_;
+    std::deque<ChannelEvent> q_;
+    bool closed_ = false;
+};
+
+// Result of a slice job — used by both the buffered and SSE handlers.
+struct SliceOutcome {
+    std::string job_id;
+    std::string gcode_path;
+    std::size_t gcode_size = 0;
+    double      estimated_time_s = 0.0;
+    std::vector<double> filament_used_g;
+};
+
+using ProgressFn = std::function<void(int pct, const std::string& stage)>;
+
+// Forward decls for helpers defined later in the file.
+static std::string make_job_id();
+static std::filesystem::path forge_tmp_root();
+inline std::string iso_now();
+
+// Shared slicing pipeline. Reads multipart fields from the request,
+// drives Slic3r::Print through process()+export_gcode(), and reports
+// progress via the optional callback. Throws std::runtime_error on
+// validation/slicing failure — callers translate to JSON error.
+static SliceOutcome run_slice(const httplib::Request& req, ProgressFn progress) {
+    auto pick = [&](const char* name) -> std::string {
+        auto it = req.files.find(name);
+        return it != req.files.end() ? it->second.content : std::string();
+    };
+
+    std::string model_bytes      = pick("model");
+    std::string printer_id       = pick("printer_id");
+    std::string process_id       = pick("process_id");
+    std::string filament_ids_raw = pick("filament_ids");
+    if (model_bytes.empty()) throw std::runtime_error("missing 'model' file");
+    if (printer_id.empty())  throw std::runtime_error("missing 'printer_id'");
+    if (process_id.empty())  throw std::runtime_error("missing 'process_id'");
+
+    std::vector<std::string> filament_ids;
+    if (!filament_ids_raw.empty()) {
+        auto arr = nlohmann::json::parse(filament_ids_raw);
+        for (const auto& f : arr) filament_ids.push_back(f.get<std::string>());
+    }
+    if (filament_ids.empty())
+        throw std::runtime_error("'filament_ids' must be a non-empty JSON array");
+
+    if (progress) progress(2, "validating");
+
+    SliceOutcome out;
+    out.job_id = make_job_id();
+    auto root  = forge_tmp_root();
+    auto job_dir = root / out.job_id;
+    std::filesystem::create_directories(job_dir);
+
+    std::string upload_name = req.files.find("model")->second.filename;
+    std::string ext = ".stl";
+    if (auto dot = upload_name.rfind('.'); dot != std::string::npos)
+        ext = upload_name.substr(dot);
+    auto model_path = job_dir / ("input" + ext);
+    {
+        std::ofstream of(model_path, std::ios::binary);
+        of.write(model_bytes.data(), static_cast<std::streamsize>(model_bytes.size()));
+    }
+    auto gcode_path = root / (out.job_id + ".gcode");
+
+    if (progress) progress(5, "applying_presets");
+
+    Slic3r::DynamicPrintConfig config;
+    {
+        std::unique_lock<std::shared_mutex> bundle_lock(g_bundle_mutex);
+        if (!g_bundle) throw std::runtime_error("no PresetBundle injected");
+
+        if (!g_bundle->printers.select_preset_by_name(printer_id, true))
+            throw std::runtime_error("unknown printer_id: " + printer_id);
+        if (!g_bundle->prints.select_preset_by_name(process_id, true))
+            throw std::runtime_error("unknown process_id: " + process_id);
+        for (const auto& fid : filament_ids) {
+            if (!g_bundle->filaments.select_preset_by_name(fid, true))
+                throw std::runtime_error("unknown filament_id: " + fid);
+        }
+        config = g_bundle->full_config(true);
+    }
+
+    if (progress) progress(10, "loading_model");
+    Slic3r::Model model = Slic3r::Model::read_from_file(model_path.string());
+
+    Slic3r::Print print;
+    if (progress) {
+        // Map Slic3r's 0..100 percent to 15..90 of the overall job — we
+        // reserve 0..15 for setup and 90..100 for gcode export.
+        print.set_status_callback([progress](const Slic3r::PrintBase::SlicingStatus& s) {
+            int scaled = 15 + (s.percent > 0 ? (s.percent * 75 / 100) : 0);
+            progress(scaled, s.text.empty() ? std::string("slicing") : s.text);
+        });
+    }
+    print.apply(model, config);
+
+    if (progress) progress(15, "slicing");
+    print.process();
+
+    if (progress) progress(92, "exporting_gcode");
+    Slic3r::GCodeProcessorResult gcode_result;
+    std::string out_path = print.export_gcode(gcode_path.string(), &gcode_result, nullptr);
+    std::error_code ec;
+    out.gcode_path       = out_path;
+    out.gcode_size       = std::filesystem::file_size(out_path, ec);
+    out.estimated_time_s = gcode_result.print_statistics.modes[0].time;
+
+    for (std::size_t i = 0; i < gcode_result.filament_densities.size(); ++i) {
+        double vol_mm3 = 0.0;
+        auto it = gcode_result.print_statistics.total_volumes_per_extruder.find(i);
+        if (it != gcode_result.print_statistics.total_volumes_per_extruder.end())
+            vol_mm3 = it->second;
+        out.filament_used_g.push_back((vol_mm3 / 1000.0) * gcode_result.filament_densities[i]);
+    }
+
+    {
+        std::lock_guard<std::mutex> lk(g_jobs_mutex);
+        g_jobs[out.job_id] = SliceJob{out.gcode_path, out.gcode_size,
+                                      out.estimated_time_s, out.filament_used_g, iso_now()};
+    }
+    if (progress) progress(100, "done");
+    return out;
+}
+
+static nlohmann::json outcome_to_json(const SliceOutcome& o) {
+    nlohmann::json r;
+    r["ok"] = true;
+    r["job_id"] = o.job_id;
+    r["gcode_path"] = o.gcode_path;
+    r["gcode_size"] = o.gcode_size;
+    r["estimated_time_s"] = o.estimated_time_s;
+    r["filament_used_g"] = o.filament_used_g;
+    return r;
+}
 
 static std::string make_job_id() {
     static std::mt19937_64 rng{std::random_device{}()};
@@ -252,113 +427,17 @@ void start(int port, const std::string& bind, const std::string& token) {
         res.set_content(j.dump(), "application/json");
     });
 
+    // Buffered slice — caller waits for the whole pipeline, then gets a
+    // single JSON document. Serialized: only one slice runs at a time.
+    static std::mutex g_slice_mutex;
     svr->Post("/api/slice", [require_auth](const httplib::Request& req, httplib::Response& res) {
         if (!require_auth(req, res)) return;
-        // Serialize slicing — only one job at a time. Holds the lock for the
-        // whole pipeline (load → apply → process → export). For real
-        // concurrency we'd need a queue + worker threads, but v1 keeps it
-        // simple and prevents PresetBundle mutation races.
-        static std::mutex slice_mutex;
-        std::lock_guard<std::mutex> slice_lock(slice_mutex);
-
+        std::lock_guard<std::mutex> slice_lock(g_slice_mutex);
         try {
             if (!req.is_multipart_form_data())
                 throw std::runtime_error("expected multipart/form-data");
-
-            auto pick = [&](const char* name) -> std::string {
-                auto it = req.files.find(name);
-                return it != req.files.end() ? it->second.content : std::string();
-            };
-
-            std::string model_bytes      = pick("model");
-            std::string printer_id       = pick("printer_id");
-            std::string process_id       = pick("process_id");
-            std::string filament_ids_raw = pick("filament_ids");
-            if (model_bytes.empty()) throw std::runtime_error("missing 'model' file");
-            if (printer_id.empty())  throw std::runtime_error("missing 'printer_id'");
-            if (process_id.empty())  throw std::runtime_error("missing 'process_id'");
-
-            std::vector<std::string> filament_ids;
-            if (!filament_ids_raw.empty()) {
-                auto arr = json::parse(filament_ids_raw);
-                for (const auto& f : arr) filament_ids.push_back(f.get<std::string>());
-            }
-            if (filament_ids.empty())
-                throw std::runtime_error("'filament_ids' must be a non-empty JSON array");
-
-            std::string job_id = make_job_id();
-            auto root          = forge_tmp_root();
-            auto job_dir       = root / job_id;
-            std::filesystem::create_directories(job_dir);
-
-            // Preserve the uploaded filename's extension so OrcaSlicer's
-            // format dispatcher picks the right reader.
-            std::string upload_name = req.files.find("model")->second.filename;
-            std::string ext         = ".stl";
-            if (auto dot = upload_name.rfind('.'); dot != std::string::npos)
-                ext = upload_name.substr(dot);
-            auto model_path = job_dir / ("input" + ext);
-            {
-                std::ofstream out(model_path, std::ios::binary);
-                out.write(model_bytes.data(), static_cast<std::streamsize>(model_bytes.size()));
-            }
-            auto gcode_path = root / (job_id + ".gcode");
-
-            // Apply presets and snapshot the resulting config so we can drop
-            // the bundle lock before the long-running process() call.
-            Slic3r::DynamicPrintConfig config;
-            {
-                std::unique_lock<std::shared_mutex> bundle_lock(g_bundle_mutex);
-                if (!g_bundle) throw std::runtime_error("no PresetBundle injected");
-
-                if (!g_bundle->printers.select_preset_by_name(printer_id, true))
-                    throw std::runtime_error("unknown printer_id: " + printer_id);
-                if (!g_bundle->prints.select_preset_by_name(process_id, true))
-                    throw std::runtime_error("unknown process_id: " + process_id);
-                for (const auto& fid : filament_ids) {
-                    if (!g_bundle->filaments.select_preset_by_name(fid, true))
-                        throw std::runtime_error("unknown filament_id: " + fid);
-                }
-                config = g_bundle->full_config(true);
-            }
-
-            Slic3r::Model model = Slic3r::Model::read_from_file(model_path.string());
-
-            Slic3r::Print print;
-            print.apply(model, config);
-            print.process();
-
-            Slic3r::GCodeProcessorResult gcode_result;
-            std::string out_path = print.export_gcode(gcode_path.string(), &gcode_result, nullptr);
-
-            std::size_t gcode_size = 0;
-            std::error_code ec;
-            gcode_size = std::filesystem::file_size(out_path, ec);
-
-            const double estimated_time_s = gcode_result.print_statistics.modes[0].time;
-
-            std::vector<double> filament_used_g;
-            for (std::size_t i = 0; i < gcode_result.filament_densities.size(); ++i) {
-                double vol_mm3 = 0.0;
-                auto it = gcode_result.print_statistics.total_volumes_per_extruder.find(i);
-                if (it != gcode_result.print_statistics.total_volumes_per_extruder.end())
-                    vol_mm3 = it->second;
-                filament_used_g.push_back((vol_mm3 / 1000.0) * gcode_result.filament_densities[i]);
-            }
-
-            {
-                std::lock_guard<std::mutex> lock(g_jobs_mutex);
-                g_jobs[job_id] = SliceJob{out_path, gcode_size, estimated_time_s, filament_used_g, iso_now()};
-            }
-
-            json resp;
-            resp["ok"] = true;
-            resp["job_id"] = job_id;
-            resp["gcode_path"] = out_path;
-            resp["gcode_size"] = gcode_size;
-            resp["estimated_time_s"] = estimated_time_s;
-            resp["filament_used_g"] = filament_used_g;
-            res.set_content(resp.dump(), "application/json");
+            SliceOutcome o = run_slice(req, nullptr);
+            res.set_content(outcome_to_json(o).dump(), "application/json");
         } catch (const std::exception& ex) {
             json err;
             err["error"] = ex.what();
@@ -366,6 +445,68 @@ void start(int port, const std::string& bind, const std::string& token) {
             res.status = 500;
             res.set_content(err.dump(), "application/json");
         }
+    });
+
+    // Streaming slice — Server-Sent Events. Slicer thread pushes progress
+    // events into a channel; the chunked content provider drains them
+    // and writes "event: kind\ndata: {...}\n\n" lines to the response.
+    svr->Post("/api/slice/stream", [require_auth](const httplib::Request& req, httplib::Response& res) {
+        if (!require_auth(req, res)) return;
+        if (!req.is_multipart_form_data()) {
+            json err;
+            err["error"] = "expected multipart/form-data";
+            err["code"]  = "ERR_BAD_REQUEST";
+            res.status = 400;
+            res.set_content(err.dump(), "application/json");
+            return;
+        }
+
+        auto channel = std::make_shared<StatusChannel>();
+
+        // Copy the multipart payload onto the worker thread — req itself
+        // is only valid for the duration of this lambda.
+        auto req_copy = std::make_shared<httplib::Request>(req);
+
+        std::thread([req_copy, channel]() {
+            std::lock_guard<std::mutex> slice_lock(g_slice_mutex);
+            try {
+                SliceOutcome o = run_slice(*req_copy,
+                    [channel](int pct, const std::string& stage) {
+                        json p; p["pct"] = pct; p["stage"] = stage;
+                        channel->push({"progress", p.dump()});
+                    });
+                channel->push({"done", outcome_to_json(o).dump()});
+            } catch (const std::exception& ex) {
+                json e;
+                e["error"] = ex.what();
+                e["code"]  = "ERR_SLICE_FAILED";
+                channel->push({"error", e.dump()});
+            }
+            channel->close();
+        }).detach();
+
+        res.set_header("Cache-Control", "no-cache");
+        res.set_chunked_content_provider("text/event-stream",
+            [channel](size_t /*offset*/, httplib::DataSink& sink) {
+                ChannelEvent ev;
+                // Time-bounded so we can emit SSE keepalives.
+                if (!channel->pop(ev, std::chrono::seconds(5))) {
+                    if (channel->is_closed_and_drained()) {
+                        sink.done();
+                        return false;
+                    }
+                    static const std::string keepalive = ":keepalive\n\n";
+                    sink.write(keepalive.data(), keepalive.size());
+                    return true;
+                }
+                std::string line = "event: " + ev.kind + "\ndata: " + ev.payload + "\n\n";
+                sink.write(line.data(), line.size());
+                if (ev.kind == "done" || ev.kind == "error") {
+                    sink.done();
+                    return false;
+                }
+                return true;
+            });
     });
 
     svr->Get(R"(/api/jobs/([^/]+)/gcode)", [require_auth](const httplib::Request& req, httplib::Response& res) {

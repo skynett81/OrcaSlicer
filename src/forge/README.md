@@ -15,11 +15,11 @@ request.
 | 2 | `GET /api/profiles[?kind=...]` | Wired |
 | 2 | `GET /api/profiles/{id}` | Wired |
 | 2 | `GET /api/printers` | Wired |
-| 3 | `POST /api/slice` | **Wired** — slices STL/3MF/OBJ via real Slic3r::Print pipeline |
+| 3 | `POST /api/slice` | **Wired** — buffered JSON, single slice at a time |
 | 3 | `GET /api/jobs` | Wired — list all jobs sliced this session |
 | 3 | `GET /api/jobs/{id}/gcode` | Wired — download the gcode file |
 | 3 | `POST /api/preview` | Returns 501 |
-| 4 | SSE progress on `/api/slice` | Not wired |
+| 5 | `POST /api/slice/stream` | **Wired** — Server-Sent Events with live progress |
 
 ## PresetBundle injection
 
