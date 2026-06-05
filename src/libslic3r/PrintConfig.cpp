@@ -11025,6 +11025,28 @@ CLIMiscConfigDef::CLIMiscConfigDef()
     def->tooltip = "Allow filaments with high/low temperature to be printed together.";
     def->cli_params = "option";
     def->set_default_value(new  ConfigOptionBool(false));
+
+    // forge-slicer REST service (skynett81 fork). When --rest_port > 0 the
+    // embedded HTTP server in src/forge/ is started instead of (or in
+    // addition to) normal CLI processing. See src/forge/INTEGRATION.md.
+    def = this->add("rest_port", coInt);
+    def->label = "forge-slicer REST port";
+    def->tooltip = "Start the forge-slicer REST service on this port (e.g. 8765). Set to -1 or omit to disable.";
+    def->min = -1;
+    def->cli_params = "port";
+    def->set_default_value(new ConfigOptionInt(-1));
+
+    def = this->add("rest_bind", coString);
+    def->label = "forge-slicer REST bind address";
+    def->tooltip = "Bind address for the forge-slicer REST service. Defaults to loopback only.";
+    def->cli_params = "address";
+    def->set_default_value(new ConfigOptionString("127.0.0.1"));
+
+    def = this->add("rest_token", coString);
+    def->label = "forge-slicer REST bearer token";
+    def->tooltip = "Optional Bearer token for the forge-slicer REST service. Empty disables auth (loopback-only deployments).";
+    def->cli_params = "token";
+    def->set_default_value(new ConfigOptionString(""));
 }
 
 const CLIActionsConfigDef    cli_actions_config_def;

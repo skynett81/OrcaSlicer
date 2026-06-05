@@ -1276,6 +1276,17 @@ int CLI::run(int argc, char **argv)
     float old_max_radius = 0.f, old_height_to_rod = 0.f, old_height_to_lid = 0.f;
     std::vector<double> old_max_layer_height, old_min_layer_height;
     std::string outfile_dir              =  m_config.opt_string("outputdir", true);
+    // forge-slicer REST service (skynett81 fork): read CLI flags. The
+    // embedded server is wired in step 2; here we only surface the
+    // parsed values. See src/forge/INTEGRATION.md.
+    const int                                   rest_port                  = m_config.option<ConfigOptionInt>("rest_port", true)->value;
+    const std::string                          &rest_bind                  = m_config.opt_string("rest_bind", true);
+    const std::string                          &rest_token                 = m_config.opt_string("rest_token", true);
+    if (rest_port > 0) {
+        BOOST_LOG_TRIVIAL(info) << "forge-slicer: REST flag detected (port=" << rest_port
+                                << ", bind=" << rest_bind
+                                << ", token=" << (rest_token.empty() ? "<none>" : "<set>") << ")";
+    }
     const std::vector<std::string>              &load_configs               = m_config.option<ConfigOptionStrings>("load_settings", true)->values;
     const std::vector<std::string>              &uptodate_configs          = m_config.option<ConfigOptionStrings>("uptodate_settings", true)->values;
     const std::vector<std::string>              &uptodate_filaments          = m_config.option<ConfigOptionStrings>("uptodate_filaments", true)->values;
