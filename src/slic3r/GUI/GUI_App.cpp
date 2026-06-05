@@ -4139,20 +4139,22 @@ void GUI_App::keyboard_shortcuts()
 
 
 void GUI_App::ShowUserGuide() {
-    // BBS:Show NewUser Guide
+    // 3DPrintForge Slicer: the original ShowUserGuide opened
+    // GuideFrame which is a webkit2gtk-backed window. On NVIDIA +
+    // Wayland the webview never gets a GBM buffer and shows up as a
+    // black square, so the Setup Wizard menu was useless.
+    //
+    // Replace with the native ForgeOnboardingDialog. On success
+    // load_current_presets() so the slicer picks up the new printer
+    // selection without a restart.
     try {
-        bool res = false;
-        GuideFrame GuideDlg(this);
-                //if (GuideDlg.IsFirstUse())
-        res = GuideDlg.run();
-if (res) {
+        ForgeOnboardingDialog dlg(mainframe);
+        if (dlg.ShowModal() == wxID_OK) {
             load_current_presets();
-            update_publish_status();
-            mainframe->refresh_plugin_tips();
-            // BBS: remove SLA related message
+            if (mainframe) mainframe->refresh_plugin_tips();
         }
-    } catch (std::exception &) {
-        // wxMessageBox(e.what(), "", MB_OK);
+    } catch (std::exception&) {
+        // swallow — failing the wizard shouldn't crash the app
     }
 }
 
