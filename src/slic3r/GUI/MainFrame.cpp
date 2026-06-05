@@ -3292,6 +3292,20 @@ void MainFrame::init_menubar_as_editor()
     //m_topbar->AddDropDownMenuItem(printer_item);
     //m_topbar->AddDropDownMenuItem(language_item);
     //m_topbar->AddDropDownMenuItem(config_item);
+
+    // Forge Library — 3DPrintForge's parametric generators. Sits in
+    // the topbar next to Help on non-macOS builds, mirroring the
+    // m_menubar branch further down for macOS.
+    auto* forge_menu_linux = new wxMenu();
+    append_menu_item(forge_menu_linux, wxID_ANY, _L("Forge Library..."),
+        _L("Browse 3DPrintForge's parametric model generators"),
+        [this](wxCommandEvent&) {
+            Slic3r::GUI::ForgeLibraryDialog dlg(this);
+            dlg.ShowModal();
+        }, "", nullptr,
+        [this]() { return true; }, this);
+    m_topbar->AddDropDownSubMenu(forge_menu_linux, _L("Forge"));
+
     m_topbar->AddDropDownSubMenu(helpMenu, _L("Help"));
 
     // SoftFever calibrations
