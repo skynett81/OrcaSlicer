@@ -54,6 +54,14 @@ static Slic3r::PresetBundle* g_bundle = nullptr;
 void set_preset_bundle(Slic3r::PresetBundle* bundle) {
     std::unique_lock lock(g_bundle_mutex);
     g_bundle = bundle;
+    if (bundle) {
+        std::cout << "[forge-slicer] PresetBundle injected: "
+                  << bundle->printers.size() << " printers, "
+                  << bundle->filaments.size() << " filaments, "
+                  << bundle->prints.size() << " processes" << std::endl;
+    } else {
+        std::cout << "[forge-slicer] PresetBundle detached (null)" << std::endl;
+    }
 }
 
 // Convert one Preset (printer/filament/process) into a JSON document.
@@ -83,6 +91,10 @@ inline std::string iso_now() {
     return buf;
 }
 
+// Use lbegin() (not cbegin()) so we expose the default presets that
+// ship with OrcaSlicer too — cbegin() skips the first
+// m_num_default_presets entries, which means a fresh install with no
+// vendor profiles installed would otherwise return an empty array.
 static nlohmann::json list_profiles(const std::string& kind, const std::string& vendor_filter) {
     using nlohmann::json;
     json arr = json::array();
@@ -90,9 +102,9 @@ static nlohmann::json list_profiles(const std::string& kind, const std::string& 
     std::shared_lock lock(g_bundle_mutex);
     if (!g_bundle) return arr;
 
-    auto enumerate = [&](const Slic3r::PresetCollection& coll, const char* k) {
+    auto enumerate = [&](Slic3r::PresetCollection& coll, const char* k) {
         if (kind != "all" && kind != k) return;
-        for (auto it = coll.cbegin(); it != coll.cend(); ++it) {
+        for (auto it = coll.lbegin(); it != coll.end(); ++it) {
             const Slic3r::Preset& preset = *it;
             if (!vendor_filter.empty()) {
                 const std::string vname = preset.vendor ? preset.vendor->name : "";
@@ -112,14 +124,14 @@ static nlohmann::json find_profile(const std::string& id) {
     std::shared_lock lock(g_bundle_mutex);
     if (!g_bundle) return nullptr;
 
-    struct Pair { const Slic3r::PresetCollection* coll; const char* kind; };
+    struct Pair { Slic3r::PresetCollection* coll; const char* kind; };
     const Pair scopes[] = {
         { &g_bundle->printers,  "printer"  },
         { &g_bundle->filaments, "filament" },
         { &g_bundle->prints,    "process"  },
     };
     for (const auto& s : scopes) {
-        for (auto it = s.coll->cbegin(); it != s.coll->cend(); ++it) {
+        for (auto it = s.coll->lbegin(); it != s.coll->end(); ++it) {
             const Slic3r::Preset& preset = *it;
             if (preset.name == id) {
                 return preset_to_json(preset, s.kind);

@@ -2,6 +2,10 @@
 #include "OrcaCloudServiceAgent.hpp"
 #include "libslic3r/Technologies.hpp"
 #include "GUI_App.hpp"
+
+#ifdef ENABLE_FORGE_REST
+#include "../../forge/rest_server.hpp"
+#endif
 #include "GUI_Init.hpp"
 #include "GUI_ObjectList.hpp"
 #include "slic3r/GUI/UserManager.hpp"
@@ -2973,6 +2977,12 @@ bool GUI_App::on_init_inner()
             show_error(nullptr, ex.what());
         }
     //}
+
+#ifdef ENABLE_FORGE_REST
+    // forge-slicer: expose the now-populated bundle to the REST service
+    // so /api/profiles can iterate printers/filaments/process presets.
+    forge_slicer::set_preset_bundle(preset_bundle);
+#endif
 
 #ifdef WIN32
     register_win32_device_notification_event();
