@@ -44,9 +44,21 @@ cmake --build build --target forge_slicer_rest
 
 ## Run
 
+GUI mode (alongside the slicer):
 ```bash
 orca-slicer --rest-port 8765 --rest-bind 127.0.0.1
 ```
+
+Headless mode (REST only, no GUI — what 3DPrintForge will use):
+```bash
+orca-slicer --rest-port 8765 --rest-only
+# Sends SIGINT (Ctrl-C) or SIGTERM to stop.
+```
+
+In `--rest-only` mode the binary skips GUI startup entirely, constructs
+a `PresetBundle` directly from `data_dir()` (defaulting to
+`$XDG_CONFIG_HOME/OrcaSlicer` or `$HOME/.config/OrcaSlicer`), and blocks
+on a signal so the REST thread keeps serving.
 
 Note: OrcaSlicer's CLI parser maps the underscore-form keys
 (`rest_port`) registered in PrintConfig.cpp to dash-form flags on
@@ -55,21 +67,23 @@ accepted — only the dash form works.
 
 ## Verified endpoints
 
-After building with `-DENABLE_FORGE_REST=ON` (verified 2026-06-05):
+End-to-end verified on 2026-06-05 (headless mode):
 
 ```bash
-$ orca-slicer --rest-port 8765 &
+$ orca-slicer --rest-port 8765 --rest-only
 [forge-slicer] REST service listening on 127.0.0.1:8765
-
-$ curl -s http://127.0.0.1:8765/api/health
-{"ok":true,"service":"forge-slicer","started_at":"...","upstream":"OrcaSlicer 2.3.1","version":"1.10.2-skynett.1"}
-
-$ curl -s http://127.0.0.1:8765/api/version
-{"api":1,"version":"1.10.2-skynett.1"}
-
-$ curl -s 'http://127.0.0.1:8765/api/profiles?kind=printer'
-{"profiles":[]}     # empty until set_preset_bundle() is wired in
+[forge-slicer] PresetBundle injected: 12 printers, 294 filaments, 34 processes
 ```
+
+| Endpoint | Status | Sample |
+|---|---|---|
+| `GET /api/health` | 200 | `{"ok":true,"service":"forge-slicer",...}` |
+| `GET /api/version` | 200 | `{"api":1,"version":"1.10.2-skynett.1"}` |
+| `GET /api/profiles?kind=printer` | 200 | 12 printers (Default Printer + 11 MyKlipper variants) |
+| `GET /api/profiles?kind=filament` | 200 | 294 filament presets |
+| `GET /api/profiles?kind=process` | 200 | 34 process presets |
+| `GET /api/profiles/{id}` | 200 | Full preset with 160-356 settings (URL-encode spaces) |
+| `GET /api/profiles/NONEXISTENT` | 404 | `{"error":"profile not found","code":"ERR_PROFILE_NOT_FOUND"}` |
 
 ## Files
 

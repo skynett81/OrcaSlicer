@@ -11047,6 +11047,12 @@ CLIMiscConfigDef::CLIMiscConfigDef()
     def->tooltip = "Optional Bearer token for the forge-slicer REST service. Empty disables auth (loopback-only deployments).";
     def->cli_params = "token";
     def->set_default_value(new ConfigOptionString(""));
+
+    def = this->add("rest_only", coBool);
+    def->label = "forge-slicer headless mode";
+    def->tooltip = "Run only the forge-slicer REST service: skip GUI startup, construct a PresetBundle from data_dir(), and block until SIGINT/SIGTERM. Use together with --rest_port.";
+    def->cli_params = "option";
+    def->set_default_value(new ConfigOptionBool(false));
 }
 
 const CLIActionsConfigDef    cli_actions_config_def;

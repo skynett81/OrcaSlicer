@@ -97,6 +97,10 @@ using namespace nlohmann;
 
 #ifdef ENABLE_FORGE_REST
     #include "forge/rest_server.hpp"
+    #include "libslic3r/AppConfig.hpp"
+    #include "libslic3r/PresetBundle.hpp"
+    #include <atomic>
+    #include <chrono>
     #include <thread>
 #endif
 
@@ -1284,16 +1288,14 @@ int CLI::run(int argc, char **argv)
     // forge-slicer REST service (skynett81 fork): when --rest_port > 0
     // we boot the embedded HTTP server in a detached thread so the
     // normal CLI/GUI pipeline still runs. Gated by ENABLE_FORGE_REST
-    // so upstream builds compile unchanged.
+    // so upstream builds compile unchanged. With --rest_only the GUI
+    // is skipped entirely and the process blocks on SIGINT/SIGTERM.
     const int                                   rest_port                  = m_config.option<ConfigOptionInt>("rest_port", true)->value;
     const std::string                          &rest_bind                  = m_config.opt_string("rest_bind", true);
     const std::string                          &rest_token                 = m_config.opt_string("rest_token", true);
+    const bool                                  rest_only                  = m_config.option<ConfigOptionBool>("rest_only", true)->value;
 #ifdef ENABLE_FORGE_REST
     if (rest_port > 0) {
-        // Profile endpoints stay empty until a PresetBundle is wired in.
-        // GUI mode should call forge_slicer::set_preset_bundle(&wxGetApp().preset_bundle)
-        // once GUI_Init has finished. Headless mode needs to construct a
-        // PresetBundle from data_dir() first — see PresetBundle::load_presets.
         BOOST_LOG_TRIVIAL(info) << "forge-slicer: starting REST service on "
                                 << rest_bind << ":" << rest_port
                                 << " (auth=" << (rest_token.empty() ? "none" : "bearer") << ")";
@@ -1304,6 +1306,57 @@ int CLI::run(int argc, char **argv)
                 BOOST_LOG_TRIVIAL(error) << "forge-slicer: REST service crashed: " << ex.what();
             }
         }).detach();
+
+        if (rest_only) {
+            BOOST_LOG_TRIVIAL(info) << "forge-slicer: --rest_only set, constructing headless PresetBundle";
+            // Statics so they outlive this scope — the REST thread will
+            // keep reading from them until the process exits.
+            static Slic3r::AppConfig    headless_app_config;
+            static Slic3r::PresetBundle headless_bundle;
+            try {
+                // Ensure data_dir points at an actual writable path. CLI::setup
+                // calls set_data_dir with the --datadir value, which defaults to
+                // "" — fall back to the platform conventional location so
+                // load_presets/setup_directories don't blow up.
+                if (Slic3r::data_dir().empty()) {
+#ifdef _WIN32
+                    const char* base = std::getenv("APPDATA");
+                    Slic3r::set_data_dir(std::string(base ? base : ".") + "/OrcaSlicer");
+#else
+                    const char* xdg  = std::getenv("XDG_CONFIG_HOME");
+                    const char* home = std::getenv("HOME");
+                    const std::string root = xdg ? std::string(xdg)
+                                                 : (std::string(home ? home : ".") + "/.config");
+                    Slic3r::set_data_dir(root + "/OrcaSlicer");
+#endif
+                    BOOST_LOG_TRIVIAL(info) << "forge-slicer: data_dir defaulted to " << Slic3r::data_dir();
+                }
+                const std::string load_err = headless_app_config.load();
+                if (!load_err.empty()) {
+                    BOOST_LOG_TRIVIAL(warning) << "forge-slicer: AppConfig::load returned: " << load_err;
+                }
+                headless_bundle.setup_directories();
+                headless_bundle.load_presets(headless_app_config,
+                    ForwardCompatibilitySubstitutionRule::EnableSilent);
+                forge_slicer::set_preset_bundle(&headless_bundle);
+            } catch (const std::exception& ex) {
+                BOOST_LOG_TRIVIAL(error) << "forge-slicer: headless bundle load failed: " << ex.what();
+            }
+
+            // Block until SIGINT/SIGTERM. Static atomic + simple signal
+            // handler keeps it portable (no condition variable juggling).
+            static std::atomic<bool> g_forge_stop{false};
+            auto stop_handler = [](int) { g_forge_stop.store(true); };
+            std::signal(SIGINT,  stop_handler);
+            std::signal(SIGTERM, stop_handler);
+            BOOST_LOG_TRIVIAL(info) << "forge-slicer: headless REST running — send SIGINT/SIGTERM to stop";
+            while (!g_forge_stop.load()) {
+                std::this_thread::sleep_for(std::chrono::seconds(1));
+            }
+            BOOST_LOG_TRIVIAL(info) << "forge-slicer: stop signal received, exiting";
+            forge_slicer::set_preset_bundle(nullptr);
+            return CLI_SUCCESS;
+        }
     }
 #else
     if (rest_port > 0) {
@@ -1311,6 +1364,7 @@ int CLI::run(int argc, char **argv)
     }
     (void)rest_bind;
     (void)rest_token;
+    (void)rest_only;
 #endif
     const std::vector<std::string>              &load_configs               = m_config.option<ConfigOptionStrings>("load_settings", true)->values;
     const std::vector<std::string>              &uptodate_configs          = m_config.option<ConfigOptionStrings>("uptodate_settings", true)->values;
