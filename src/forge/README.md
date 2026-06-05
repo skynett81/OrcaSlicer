@@ -21,6 +21,25 @@ request.
 | 3 | `POST /api/preview` | Returns 501 |
 | 5 | `POST /api/slice/stream` | **Wired** — Server-Sent Events with live progress |
 
+## Forge Library (GUI side)
+
+In addition to the REST service, the slicer GUI now ships a Forge
+Library entry point that surfaces 3DPrintForge's parametric model
+generators. Implemented in `src/slic3r/GUI/ForgeLibraryDialog.{hpp,cpp}`:
+
+| Phase | Feature | Status |
+|---|---|---|
+| 1 | Top-level **Forge** menu in MainFrame | Wired |
+| 1 | `Forge Library...` dialog with 51-generator catalog | Wired |
+| 1 | "Open in 3DPrintForge" launches the dashboard's Model Forge tab | Wired |
+| 2 | Embedded cpp-httplib client POSTs to `/api/model-forge/{id}/generate-3mf` | Pending |
+| 2 | Auto-loads the returned 3MF onto the active plate | Pending |
+| 3 | Parameter forms generated from generator schema | Pending |
+| 4 | Live preview thumbnail before "Add to Plate" | Pending |
+
+Dashboard URL defaults to `https://localhost:3443` and can be
+overridden via the `FORGE_DASHBOARD_URL` environment variable.
+
 ## PresetBundle injection
 
 `list_profiles()` and `find_profile()` iterate the real OrcaSlicer
