@@ -40,6 +40,7 @@
 #include "WebViewDialog.hpp"
 #include "../Utils/Process.hpp"
 #include "format.hpp"
+#include "ForgeLibraryDialog.hpp"
 // BBS
 #include "PartPlate.hpp"
 #include "Preferences.hpp"
@@ -3499,6 +3500,20 @@ void MainFrame::init_menubar_as_editor()
         [this]() {return m_plater->is_view3D_shown();; }, this);
 
     m_menubar->Append(calib_menu,wxString::Format("&%s", _L("Calibration")));
+
+    // Forge Library — 3DPrintForge's parametric generators (Phase 1
+    // opens the dashboard's Model Forge tab; later this will run
+    // generation inline and drop the result on the active plate).
+    auto* forge_menu = new wxMenu();
+    append_menu_item(forge_menu, wxID_ANY, _L("Forge Library..."),
+        _L("Browse 3DPrintForge's parametric model generators"),
+        [this](wxCommandEvent&) {
+            Slic3r::GUI::ForgeLibraryDialog dlg(this);
+            dlg.ShowModal();
+        }, "", nullptr,
+        [this]() { return true; }, this);
+    m_menubar->Append(forge_menu, wxString::Format("&%s", _L("Forge")));
+
     if (helpMenu)
         m_menubar->Append(helpMenu, wxString::Format("&%s", _L("Help")));
     SetMenuBar(m_menubar);
