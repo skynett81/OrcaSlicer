@@ -25,9 +25,7 @@ target_include_directories(forge_slicer_rest
 target_link_libraries(forge_slicer_rest
     PUBLIC httplib::httplib
     PUBLIC nlohmann_json
+    PUBLIC libslic3r
 )
-
-# Reach into libslic3r once Phase 2 wires PresetBundle iteration.
-# target_link_libraries(forge_slicer_rest PUBLIC libslic3r)
 
 target_compile_features(forge_slicer_rest PUBLIC cxx_std_17)

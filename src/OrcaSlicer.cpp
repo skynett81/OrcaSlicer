@@ -1290,6 +1290,10 @@ int CLI::run(int argc, char **argv)
     const std::string                          &rest_token                 = m_config.opt_string("rest_token", true);
 #ifdef ENABLE_FORGE_REST
     if (rest_port > 0) {
+        // Profile endpoints stay empty until a PresetBundle is wired in.
+        // GUI mode should call forge_slicer::set_preset_bundle(&wxGetApp().preset_bundle)
+        // once GUI_Init has finished. Headless mode needs to construct a
+        // PresetBundle from data_dir() first — see PresetBundle::load_presets.
         BOOST_LOG_TRIVIAL(info) << "forge-slicer: starting REST service on "
                                 << rest_bind << ":" << rest_port
                                 << " (auth=" << (rest_token.empty() ? "none" : "bearer") << ")";

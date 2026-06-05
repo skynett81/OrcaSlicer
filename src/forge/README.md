@@ -10,14 +10,30 @@ request.
 
 | Phase | Endpoint | Status |
 |---|---|---|
-| 1 | `GET /api/health` | Skeleton |
-| 1 | `GET /api/version` | Skeleton |
-| 2 | `GET /api/profiles[?kind=...]` | Skeleton (stub returns `[]`) |
-| 2 | `GET /api/profiles/{id}` | Skeleton (stub returns 404) |
-| 2 | `GET /api/printers` | Skeleton |
+| 1 | `GET /api/health` | Wired |
+| 1 | `GET /api/version` | Wired |
+| 2 | `GET /api/profiles[?kind=...]` | Wired — needs `set_preset_bundle()` call from host |
+| 2 | `GET /api/profiles/{id}` | Wired — needs `set_preset_bundle()` call from host |
+| 2 | `GET /api/printers` | Wired — needs `set_preset_bundle()` call from host |
 | 3 | `POST /api/slice` | Returns 501 |
 | 3 | `POST /api/preview` | Returns 501 |
 | 4 | `GET /api/jobs/{id}/gcode` | Not wired |
+
+## PresetBundle injection
+
+`list_profiles()` and `find_profile()` iterate the real OrcaSlicer
+`PresetBundle`, but the host (GUI or headless CLI) is responsible for
+handing it over via `forge_slicer::set_preset_bundle()`.
+
+- **GUI mode**: call after GUI_Init completes:
+  ```cpp
+  forge_slicer::set_preset_bundle(&Slic3r::GUI::wxGetApp().preset_bundle);
+  ```
+- **Headless mode**: construct a `PresetBundle` from `data_dir()`
+  using `PresetBundle::load_presets()` and pass its address.
+
+Until injection happens the profile endpoints return empty arrays /
+`null` — they never crash on a missing bundle.
 
 ## Build
 

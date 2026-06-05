@@ -29,13 +29,13 @@
 #include <chrono>
 #include <ctime>
 #include <iostream>
+#include <mutex>
+#include <shared_mutex>
 #include <string>
 #include <vector>
 
-// Project headers — adjust paths to match your OrcaSlicer fork layout.
-// #include "Preset.hpp"
-// #include "PresetBundle.hpp"
-// #include "Print.hpp"
+#include "libslic3r/Preset.hpp"
+#include "libslic3r/PresetBundle.hpp"
 
 namespace forge_slicer {
 
@@ -45,6 +45,37 @@ static std::string UPSTREAM_VERSION = "OrcaSlicer 2.3.1";
 static std::atomic<bool> g_started{false};
 static std::string g_started_at;
 
+// Bundle injection. Set by OrcaSlicer.cpp (GUI: wxGetApp().preset_bundle;
+// headless: a PresetBundle constructed from data_dir). nullptr means
+// profile endpoints return empty until the bundle is wired in.
+static std::shared_mutex g_bundle_mutex;
+static Slic3r::PresetBundle* g_bundle = nullptr;
+
+void set_preset_bundle(Slic3r::PresetBundle* bundle) {
+    std::unique_lock lock(g_bundle_mutex);
+    g_bundle = bundle;
+}
+
+// Convert one Preset (printer/filament/process) into a JSON document.
+// Iterates the underlying DynamicPrintConfig via keys()/opt_serialize()
+// since Preset::config has no first-class JSON serializer.
+static nlohmann::json preset_to_json(const Slic3r::Preset& preset, const char* kind) {
+    using nlohmann::json;
+    json p;
+    p["id"]         = preset.name;
+    p["kind"]       = kind;
+    p["name"]       = preset.name;
+    p["vendor"]     = preset.vendor ? preset.vendor->name : "";
+    p["is_default"] = preset.is_default;
+
+    json settings = json::object();
+    for (const auto& key : preset.config.keys()) {
+        settings[key] = preset.config.opt_serialize(key);
+    }
+    p["settings"] = std::move(settings);
+    return p;
+}
+
 inline std::string iso_now() {
     auto t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
     char buf[32];
@@ -52,52 +83,49 @@ inline std::string iso_now() {
     return buf;
 }
 
-// Bridges into your fork's existing PresetBundle. Replace the body
-// with a real lookup once you've decided where to inject the
-// PresetBundle reference (Slic3r::GUI::wxGetApp().preset_bundle is the
-// usual entry point, but headless mode needs a singleton or a passed-
-// in reference).
 static nlohmann::json list_profiles(const std::string& kind, const std::string& vendor_filter) {
     using nlohmann::json;
     json arr = json::array();
 
-    // Pseudocode — replace with your fork's preset iteration:
-    //
-    // auto& bundle = Slic3r::GUI::wxGetApp().preset_bundle;
-    // auto enumerate = [&](const Slic3r::PresetCollection& coll, const char* k) {
-    //     if (kind != "all" && kind != k) return;
-    //     for (const auto& preset : coll) {
-    //         if (!vendor_filter.empty() && preset.vendor != vendor_filter) continue;
-    //         json p;
-    //         p["id"] = preset.name;
-    //         p["kind"] = k;
-    //         p["name"] = preset.name;
-    //         p["vendor"] = preset.vendor ? preset.vendor->name : "";
-    //         p["is_default"] = preset.is_default;
-    //         p["settings"] = json::parse(preset.config.serialize_json());
-    //         arr.push_back(p);
-    //     }
-    // };
-    // enumerate(bundle->printers, "printer");
-    // enumerate(bundle->filaments, "filament");
-    // enumerate(bundle->prints, "process");
+    std::shared_lock lock(g_bundle_mutex);
+    if (!g_bundle) return arr;
 
+    auto enumerate = [&](const Slic3r::PresetCollection& coll, const char* k) {
+        if (kind != "all" && kind != k) return;
+        for (auto it = coll.cbegin(); it != coll.cend(); ++it) {
+            const Slic3r::Preset& preset = *it;
+            if (!vendor_filter.empty()) {
+                const std::string vname = preset.vendor ? preset.vendor->name : "";
+                if (vname != vendor_filter) continue;
+            }
+            arr.push_back(preset_to_json(preset, k));
+        }
+    };
+    enumerate(g_bundle->printers,  "printer");
+    enumerate(g_bundle->filaments, "filament");
+    enumerate(g_bundle->prints,    "process");
     return arr;
 }
 
 static nlohmann::json find_profile(const std::string& id) {
     using nlohmann::json;
-    // auto& bundle = Slic3r::GUI::wxGetApp().preset_bundle;
-    // for (auto* coll : { &bundle->printers, &bundle->filaments, &bundle->prints }) {
-    //     if (auto* p = coll->find_preset(id)) {
-    //         json o;
-    //         o["id"] = p->name;
-    //         o["name"] = p->name;
-    //         o["vendor"] = p->vendor ? p->vendor->name : "";
-    //         o["settings"] = json::parse(p->config.serialize_json());
-    //         return o;
-    //     }
-    // }
+    std::shared_lock lock(g_bundle_mutex);
+    if (!g_bundle) return nullptr;
+
+    struct Pair { const Slic3r::PresetCollection* coll; const char* kind; };
+    const Pair scopes[] = {
+        { &g_bundle->printers,  "printer"  },
+        { &g_bundle->filaments, "filament" },
+        { &g_bundle->prints,    "process"  },
+    };
+    for (const auto& s : scopes) {
+        for (auto it = s.coll->cbegin(); it != s.coll->cend(); ++it) {
+            const Slic3r::Preset& preset = *it;
+            if (preset.name == id) {
+                return preset_to_json(preset, s.kind);
+            }
+        }
+    }
     return nullptr;
 }
 
