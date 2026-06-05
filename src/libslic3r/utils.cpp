@@ -1,5 +1,8 @@
 #include "Utils.hpp"
 #include "I18N.hpp"
+#include "AppConfig.hpp"
+
+#include <nlohmann/json.hpp>
 
 #include <atomic>
 #include <locale>
@@ -354,6 +357,71 @@ bool migrate_legacy_orcaslicer_data_dir()
     } catch (const std::exception& ex) {
         BOOST_LOG_TRIVIAL(warning) << "config migration failed: " << ex.what();
         return false;
+    }
+}
+
+// Walk every vendor bundle under system_dir, parse its machine_model_list,
+// peek into each machine JSON for nozzle_diameter, and call
+// app_config->set_variant(vendor, model, "X.X nozzle", true) so the GUI
+// printer dropdown actually shows them. Without this AppConfig::m_vendors
+// stays empty and the PresetBundle filters every machine out as
+// 'not installed'.
+void register_all_vendor_models_in_app_config(AppConfig& app_config,
+                                              const boost::filesystem::path& system_dir)
+{
+    namespace fs = boost::filesystem;
+    if (!fs::exists(system_dir) || !fs::is_directory(system_dir)) return;
+
+    int total_models = 0;
+    for (fs::directory_iterator it(system_dir), end = fs::directory_iterator(); it != end; ++it) {
+        if (!fs::is_regular_file(it->path())) continue;
+        if (it->path().extension() != ".json") continue;
+        const std::string vendor_name = it->path().stem().string();
+        // Skip the Custom/OrcaFilamentLibrary helpers that ship by default.
+        if (vendor_name == "Custom" || vendor_name == "OrcaFilamentLibrary") continue;
+
+        try {
+            std::ifstream ifs(it->path().string());
+            if (!ifs) continue;
+            nlohmann::json vendor_json;
+            ifs >> vendor_json;
+            if (!vendor_json.contains("machine_model_list")) continue;
+            for (const auto& m : vendor_json["machine_model_list"]) {
+                if (!m.contains("name") || !m.contains("sub_path")) continue;
+                const std::string model_name = m["name"].get<std::string>();
+                fs::path machine_path = system_dir / vendor_name / m["sub_path"].get<std::string>();
+                if (!fs::exists(machine_path)) continue;
+
+                std::ifstream mifs(machine_path.string());
+                if (!mifs) continue;
+                nlohmann::json machine_json;
+                mifs >> machine_json;
+                if (!machine_json.contains("nozzle_diameter")) continue;
+                // nozzle_diameter is ';'-separated like "0.4;0.2;0.6;0.8"
+                std::string nozzles = machine_json["nozzle_diameter"].get<std::string>();
+                std::string nozzle;
+                for (size_t i = 0; i <= nozzles.size(); ++i) {
+                    if (i == nozzles.size() || nozzles[i] == ';') {
+                        if (!nozzle.empty()) {
+                            app_config.set_variant(vendor_name, model_name,
+                                                    nozzle + " nozzle", true);
+                            ++total_models;
+                        }
+                        nozzle.clear();
+                    } else {
+                        nozzle.push_back(nozzles[i]);
+                    }
+                }
+            }
+        } catch (const std::exception& ex) {
+            BOOST_LOG_TRIVIAL(warning) << "register_all_vendor_models: failed parsing "
+                                       << it->path().string() << ": " << ex.what();
+        }
+    }
+    if (total_models > 0) {
+        BOOST_LOG_TRIVIAL(info) << "auto-registered " << total_models
+                                << " printer variants in AppConfig vendor map";
+        app_config.save();
     }
 }
 

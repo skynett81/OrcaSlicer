@@ -201,6 +201,17 @@ bool migrate_legacy_orcaslicer_data_dir();
 // vendor folders.
 bool seed_system_profiles_from_resources(const std::string& resources_root);
 
+// After seed_system_profiles_from_resources copies files, the
+// AppConfig 'vendor' map is still empty so the GUI filters every
+// machine out as 'not installed'. This walks the system tree, parses
+// each vendor.json's machine_model_list + each machine's
+// nozzle_diameter, and calls AppConfig::set_variant for every
+// (vendor, model, '<size> nozzle') triple it finds. Saves the config
+// so the registry survives a restart.
+class AppConfig;
+void register_all_vendor_models_in_app_config(AppConfig& app_config,
+                                              const boost::filesystem::path& system_dir);
+
 // BBL: true: succeed create or dir exists; false: fail to create
 bool makedir(const std::string path);
 

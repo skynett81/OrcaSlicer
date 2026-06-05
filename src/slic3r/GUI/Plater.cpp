@@ -9593,7 +9593,7 @@ void Plater::priv::on_select_preset(wxCommandEvent &evt)
                 }
             }
             if (cloud_url.empty())
-                cloud_url = "https://cloud.orcaslicer.com";
+                cloud_url = "";
 
             std::string explore_url = cloud_url + "/app/bundles/explore?printers=" + encoded_name;
 

@@ -49,7 +49,7 @@ namespace Slic3r {
 namespace {
 constexpr const char* ORCA_DEFAULT_API_URL = "api.orcaslicer.com";
 constexpr const char* ORCA_DEFAULT_AUTH_URL = "https://auth.orcaslicer.com";
-constexpr const char* ORCA_DEFAULT_CLOUD_URL = "https://cloud.orcaslicer.com";
+constexpr const char* ORCA_DEFAULT_CLOUD_URL = "";
 // Orca: This is a public key with no secret, used to identify the client application to the backend.
 constexpr const char* ORCA_DEFAULT_PUB_KEY = "sb_publishable_lvVe_whOi80SU9BPSxM1kA_tbt9AbR_";
 

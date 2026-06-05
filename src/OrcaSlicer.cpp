@@ -1336,6 +1336,8 @@ int CLI::run(int argc, char **argv)
                 Slic3r::migrate_legacy_orcaslicer_data_dir();
                 Slic3r::seed_system_profiles_from_resources(Slic3r::resources_dir());
                 const std::string load_err = headless_app_config.load();
+                Slic3r::register_all_vendor_models_in_app_config(headless_app_config,
+                    boost::filesystem::path(Slic3r::data_dir()) / "system");
                 if (!load_err.empty()) {
                     BOOST_LOG_TRIVIAL(warning) << "forge-slicer: AppConfig::load returned: " << load_err;
                 }
