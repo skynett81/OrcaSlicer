@@ -8936,11 +8936,17 @@ void GUI_App::window_pos_center(wxTopLevelWindow *window)
 
 bool GUI_App::config_wizard_startup()
 {
+    // 3DPrintForge Slicer: skip the auto-launched ConfigWizard. The wizard
+    // is a webkit2gtk-driven dialog that renders as a blank panel on
+    // NVIDIA + Wayland (GBM buffer errors), so first-launch users would
+    // get stuck. The Forge config-migration path already drops the user
+    // straight into the same datadir as upstream OrcaSlicer if they had
+    // one, and the Settings -> Printer Studio entry still lets a user
+    // pick vendor profiles by hand. Users can still re-trigger the
+    // wizard manually via Help -> Setup Wizard.
     if (!m_app_conf_exists || preset_bundle->printers.only_default_printers()) {
-        BOOST_LOG_TRIVIAL(info) << "run wizard...";
-        run_wizard(ConfigWizard::RR_DATA_EMPTY);
-        BOOST_LOG_TRIVIAL(info) << "finished run wizard";
-        return true;
+        BOOST_LOG_TRIVIAL(info) << "config_wizard_startup skipped (forge fork — wizard kept manual-only).";
+        return false;
     } /*else if (get_app_config()->legacy_datadir()) {
         // Looks like user has legacy pre-vendorbundle data directory,
         // explain what this is and run the wizard
