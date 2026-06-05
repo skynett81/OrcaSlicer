@@ -1334,6 +1334,7 @@ int CLI::run(int argc, char **argv)
                 // Pull the legacy ~/.config/OrcaSlicer tree across if this
                 // is the first launch under the rebranded app key.
                 Slic3r::migrate_legacy_orcaslicer_data_dir();
+                Slic3r::seed_system_profiles_from_resources(Slic3r::resources_dir());
                 const std::string load_err = headless_app_config.load();
                 if (!load_err.empty()) {
                     BOOST_LOG_TRIVIAL(warning) << "forge-slicer: AppConfig::load returned: " << load_err;

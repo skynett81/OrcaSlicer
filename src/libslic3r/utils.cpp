@@ -357,6 +357,69 @@ bool migrate_legacy_orcaslicer_data_dir()
     }
 }
 
+bool seed_system_profiles_from_resources(const std::string& resources_root)
+{
+    namespace fs = boost::filesystem;
+    if (g_data_dir.empty() || resources_root.empty()) return false;
+
+    fs::path system_dir = fs::path(g_data_dir) / "system";
+    fs::path src_profiles = fs::path(resources_root) / "profiles";
+    if (!fs::exists(src_profiles) || !fs::is_directory(src_profiles)) return false;
+
+    fs::create_directories(system_dir);
+
+    // OrcaSlicer's ConfigWizard normally populates data_dir/system by
+    // copying selected vendor bundles from resources/profiles. On NVIDIA
+    // + Wayland the wizard's webview renders blank so users can't
+    // complete it, leaving the slicer with only Custom + OrcaFilamentLibrary
+    // and no way to pick or add printers. Seed all vendor bundles up
+    // front; the user can still curate via Preferences afterwards.
+    auto count_real_entries = [&] {
+        int n = 0;
+        if (!fs::exists(system_dir)) return n;
+        for (auto it = fs::directory_iterator(system_dir), end = fs::directory_iterator(); it != end; ++it) {
+            const std::string nm = it->path().filename().string();
+            if (nm == "Custom" || nm == "Custom.json" ||
+                nm == "OrcaFilamentLibrary" || nm == "OrcaFilamentLibrary.json")
+                continue;
+            ++n;
+        }
+        return n;
+    };
+    if (count_real_entries() > 0) return false;  // already seeded
+
+    int copied = 0;
+    try {
+        for (fs::directory_iterator vendor_it(src_profiles), vend = fs::directory_iterator();
+             vendor_it != vend; ++vendor_it) {
+            fs::path dst = system_dir / vendor_it->path().filename();
+            if (fs::exists(dst)) continue;
+            if (fs::is_directory(vendor_it->status())) {
+                fs::create_directories(dst);
+                for (fs::recursive_directory_iterator file_it(vendor_it->path()), end; file_it != end; ++file_it) {
+                    fs::path rel = fs::relative(file_it->path(), vendor_it->path());
+                    fs::path file_dst = dst / rel;
+                    if (fs::is_directory(file_it->status())) {
+                        fs::create_directories(file_dst);
+                    } else {
+                        if (!file_dst.parent_path().empty()) fs::create_directories(file_dst.parent_path());
+                        fs::copy_file(file_it->path(), file_dst, fs::copy_options::overwrite_existing);
+                    }
+                }
+            } else {
+                fs::copy_file(vendor_it->path(), dst, fs::copy_options::overwrite_existing);
+            }
+            ++copied;
+        }
+        BOOST_LOG_TRIVIAL(info) << "auto-seeded " << copied << " vendor entries from "
+                                << src_profiles.string() << " -> " << system_dir.string();
+        return copied > 0;
+    } catch (const std::exception& ex) {
+        BOOST_LOG_TRIVIAL(warning) << "auto-seed of vendor profiles failed: " << ex.what();
+        return false;
+    }
+}
+
 std::string custom_shapes_dir()
 {
     return (boost::filesystem::path(g_data_dir) / "shapes").string();

@@ -193,6 +193,14 @@ const std::string& data_dir();
 // populated.
 bool migrate_legacy_orcaslicer_data_dir();
 
+// One-shot bulk-install: copy every vendor bundle under
+// <resources_root>/profiles into data_dir()/system on first launch
+// so the user has the full printer catalogue available without
+// having to step through ConfigWizard. resources_root is normally
+// resources_dir(). No-op if system already has any non-default
+// vendor folders.
+bool seed_system_profiles_from_resources(const std::string& resources_root);
+
 // BBL: true: succeed create or dir exists; false: fail to create
 bool makedir(const std::string path);
 

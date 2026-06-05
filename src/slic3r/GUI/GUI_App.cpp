@@ -2345,6 +2345,9 @@ void GUI_App::init_app_config()
         // first launch so existing users keep their printer/filament
         // selections.
         Slic3r::migrate_legacy_orcaslicer_data_dir();
+        // And bulk-install every vendor bundle so the user has a working
+        // printer catalogue even when ConfigWizard's webview won't render.
+        Slic3r::seed_system_profiles_from_resources(Slic3r::resources_dir());
 
         // Change current dirtory of application
 
