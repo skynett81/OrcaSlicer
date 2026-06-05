@@ -266,9 +266,9 @@ AboutDialog::AboutDialog()
     text_sizer_horiz->Add( 0, 0, 0, wxLEFT, FromDIP(20));
 
     std::vector<wxString> text_list;
-    text_list.push_back(_L("Open-source slicing stands on a tradition of collaboration and attribution. Slic3r, created by Alessandro Ranellucci and the RepRap community, laid the foundation. PrusaSlicer by Prusa Research built on that work, Bambu Studio forked from PrusaSlicer, and SuperSlicer extended it with community-driven enhancements. Each project carried the work of its predecessors forward, crediting those who came before."));
-    text_list.push_back(_L("OrcaSlicer began in that same spirit, drawing from PrusaSlicer, BambuStudio, SuperSlicer, and CuraSlicer. But it has since grown far beyond its origins — introducing advanced calibration tools, precise wall and seam control and hundreds of other features."));
-    text_list.push_back(_L("Today, OrcaSlicer is the most widely used and actively developed open-source slicer in the 3D printing community. Many of its innovations have been adopted by other slicers, making it a driving force for the entire industry."));
+    text_list.push_back(_L("Open-source slicing stands on a tradition of collaboration and attribution. Slic3r, created by Alessandro Ranellucci and the RepRap community, laid the foundation. PrusaSlicer by Prusa Research built on that work, Bambu Studio forked from PrusaSlicer, and SuperSlicer extended it with community-driven enhancements. 3DPrintForge Slicer drew on all of them and added advanced calibration, precise wall and seam control, and many other features. Each project carried the work of its predecessors forward."));
+    text_list.push_back(_L("3DPrintForge Slicer extends that line with a focus on fleet operations. It ships with the integrated 3DPrintForge feature set: AMS-aware spool tracking, multi-printer dispatch across 17 brands and protocols, native multi-material support for tool-changer printers like the Snapmaker U1, and the Forge Library of parametric model generators."));
+    text_list.push_back(_L("Built for users who run more than one printer and want their slicer, dashboard, and queue to know about each other. The REST service mode lets 3DPrintForge drive slicing remotely, while the GUI stays available for one-off jobs and tuning."));
 
     text_sizer->Add( 0, 0, 0, wxTOP, FromDIP(33));
     bool is_zh = wxGetApp().app_config->get("language") == "zh_CN";
