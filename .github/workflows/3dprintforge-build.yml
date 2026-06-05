@@ -106,6 +106,10 @@ jobs:
           nm -C build/src/3dprintforge-slicer | grep 'forge_slicer::start' || \
             (echo 'forge_slicer::start symbol missing from binary' && exit 1)
 
+      - name: REST E2E
+        run: bash tests/forge-rest/e2e.sh build/src/3dprintforge-slicer
+        timeout-minutes: 5
+
       - name: Stage artifact tree
         run: |
           mkdir -p dist/3dprintforge-slicer
