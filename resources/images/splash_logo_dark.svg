@@ -9,31 +9,19 @@
       <stop offset="0" stop-color="#13C9AC"/>
       <stop offset="1" stop-color="#00766A"/>
     </linearGradient>
-    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="16" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
   </defs>
   <rect width="480" height="480" fill="url(#bg)"/>
-  <circle cx="240" cy="124" r="120" fill="none" stroke="#26C76E" stroke-width="2" opacity="0.16"/>
-  <circle cx="240" cy="124" r="150" fill="none" stroke="#26C76E" stroke-width="2" opacity="0.08"/>
-  <g filter="url(#glow)">
-    <rect x="160" y="44" width="160" height="160" rx="36" fill="url(#mark)"/>
+  <circle cx="240" cy="150" r="124" fill="none" stroke="#26C76E" stroke-width="2" opacity="0.16"/>
+  <circle cx="240" cy="150" r="156" fill="none" stroke="#26C76E" stroke-width="2" opacity="0.08"/>
+  <rect x="160" y="70" width="160" height="160" rx="36" fill="url(#mark)"/>
+  <g transform="translate(240 150)" stroke="#FFFFFF" stroke-width="6" stroke-linecap="round" fill="none">
+    <line x1="-26" y1="-32" x2="-26" y2="32"/><line x1="0" y1="-32" x2="0" y2="32"/><line x1="26" y1="-32" x2="26" y2="32"/>
+    <line x1="-32" y1="-26" x2="32" y2="-26"/><line x1="-32" y1="0" x2="32" y2="0"/><line x1="-32" y1="26" x2="32" y2="26"/>
   </g>
-  <g transform="translate(240 119)" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round" fill="none">
-    <line x1="-25" y1="-30" x2="-25" y2="30"/><line x1="0" y1="-30" x2="0" y2="30"/><line x1="25" y1="-30" x2="25" y2="30"/>
-    <line x1="-30" y1="-25" x2="30" y2="-25"/><line x1="-30" y1="0" x2="30" y2="0"/><line x1="-30" y1="25" x2="30" y2="25"/>
+  <g transform="translate(240 150)" fill="#FFFFFF">
+    <circle cx="-26" cy="-26" r="4.5"/><circle cx="0" cy="-26" r="4.5"/><circle cx="26" cy="-26" r="4.5"/>
+    <circle cx="-26" cy="0" r="4.5"/><circle cx="0" cy="0" r="4.5"/><circle cx="26" cy="0" r="4.5"/>
+    <circle cx="-26" cy="26" r="4.5"/><circle cx="0" cy="26" r="4.5"/><circle cx="26" cy="26" r="4.5"/>
   </g>
-  <g transform="translate(240 119)" fill="#FFFFFF">
-    <circle cx="-25" cy="-25" r="4"/><circle cx="0" cy="-25" r="4"/><circle cx="25" cy="-25" r="4"/>
-    <circle cx="-25" cy="0" r="4"/><circle cx="0" cy="0" r="4"/><circle cx="25" cy="0" r="4"/>
-    <circle cx="-25" cy="25" r="4"/><circle cx="0" cy="25" r="4"/><circle cx="25" cy="25" r="4"/>
-  </g>
-  <text x="240" y="189" text-anchor="middle" font-family="-apple-system, Segoe UI, Roboto, sans-serif"
-        font-weight="800" font-size="26" fill="#FFFFFF" letter-spacing="1">3D</text>
-  <text x="240" y="262" text-anchor="middle" font-family="-apple-system, Segoe UI, Roboto, sans-serif"
-        font-weight="800" font-size="40" fill="#FFFFFF" letter-spacing="-0.5">3DPrintForge</text>
-  <text x="240" y="296" text-anchor="middle" font-family="-apple-system, Segoe UI, Roboto, sans-serif"
-        font-weight="600" font-size="21" fill="#26C76E" letter-spacing="9">SLICER</text>
-  <rect x="200" y="312" width="80" height="3" rx="1.5" fill="#26C76E" opacity="0.9"/>
+  <rect x="205" y="288" width="70" height="3" rx="1.5" fill="#26C76E" opacity="0.9"/>
 </svg>

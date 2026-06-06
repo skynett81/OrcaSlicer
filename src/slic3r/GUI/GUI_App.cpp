@@ -309,6 +309,7 @@ public:
         m_bg_color = StateColor::darkModeColorFor(wxColour("#FFFFFF"));
         m_fg_color = StateColor::darkModeColorFor(wxColour("#6B6A6A"));
         bool dark_mode = m_fg_color != wxColour("#6B6A6A");
+        m_title_color = dark_mode ? wxColour("#FFFFFF") : wxColour("#16211E");
         wxSize sz  = m_window->GetClientSize();
         BitmapCache bmp_cache;
         m_logo_bmp = *bmp_cache.load_svg(dark_mode ? "splash_logo_dark" : "splash_logo", sz.GetWidth(), sz.GetHeight());
@@ -327,6 +328,16 @@ public:
         dc.Clear();
         if (m_logo_bmp.IsOk())
             dc.DrawBitmap(m_logo_bmp, 0, 0, true);
+
+        // Product wordmark — drawn in code because nanosvg (used by load_svg)
+        // does not render SVG <text>, so the splash SVG is graphics-only.
+        {
+            wxRect wr(0, (int)(c_sz.GetHeight() * 0.60), c_sz.GetWidth(), 0);
+            dc.SetTextForeground(m_title_color);
+            dc.SetFont(m_font_title);
+            wr.height = dc.GetTextExtent("3DPrintForge Slicer").GetHeight();
+            dc.DrawLabel("3DPrintForge Slicer", wr, wxALIGN_CENTER);
+        }
 
         wxRect rc = wxRect(0, 0, c_sz.GetWidth(), 0);
         dc.SetTextForeground(m_fg_color);
@@ -393,6 +404,8 @@ private:
 
     wxFont m_font_version = Label::Body_16;
     wxFont m_font_action  = Label::Body_16;
+    wxColour m_title_color;
+    wxFont m_font_title   = Label::Head_24;
 };
 
 #ifdef __linux__
