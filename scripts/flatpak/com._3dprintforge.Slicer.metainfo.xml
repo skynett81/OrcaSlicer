@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop">
-    <id>com.3dprintforge.Slicer</id>
-    <launchable type="desktop-id">com.3dprintforge.Slicer.desktop</launchable>
+    <id>com._3dprintforge.Slicer</id>
+    <launchable type="desktop-id">com._3dprintforge.Slicer.desktop</launchable>
     <name>3DPrintForge Slicer</name>
     <summary>Get even more perfect prints!</summary>
     <developer id="com.3dprintforge">

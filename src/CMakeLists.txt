@@ -106,9 +106,9 @@ if(ORCA_TOOLS)
             MACOSX_BUNDLE_BUNDLE_NAME "3DPrintForge Slicer Profile Validator"
             MACOSX_BUNDLE_BUNDLE_VERSION "${SLIC3R_VERSION}"
             MACOSX_BUNDLE_SHORT_VERSION_STRING "${SLIC3R_VERSION}"
-            MACOSX_BUNDLE_IDENTIFIER "com.3dprintforge.Slicer.profile-validator"
+            MACOSX_BUNDLE_IDENTIFIER "com._3dprintforge.Slicer.profile-validator"
             MACOSX_BUNDLE_COPYRIGHT "© 2026 3DPrintForge All Rights Reserved"
-            MACOSX_BUNDLE_GUI_IDENTIFIER "com.3dprintforge.Slicer.profile-validator"
+            MACOSX_BUNDLE_GUI_IDENTIFIER "com._3dprintforge.Slicer.profile-validator"
         )
     else()
         add_executable(ForgeSlicer_profile_validator dev-utils/ForgeSlicer_profile_validator.cpp)

@@ -388,7 +388,7 @@ private:
     wxColour m_fg_color;
     wxColour m_bg_color;
 
-    wxString m_text_version = GUI_App::format_display_version();
+    wxString m_text_version = wxString::FromUTF8(SLIC3R_APP_NAME) + " v" + GUI_App::format_display_version();
     wxString m_text_action  = _L("Loading configuration") + dots;
 
     wxFont m_font_version = Label::Body_16;
@@ -410,7 +410,7 @@ static void migrate_flatpak_legacy_datadir(const boost::filesystem::path &data_d
     std::cerr << "Migrating Flatpak data dir: " << data_dir_path << std::endl;
 
     std::string legacy_data_dir_str = data_dir_path.string();
-    boost::replace_first(legacy_data_dir_str, "com.3dprintforge.Slicer", "io.github.skynett81.3DPrintForgeSlicer");
+    boost::replace_first(legacy_data_dir_str, "com._3dprintforge.Slicer", "io.github.skynett81.3DPrintForgeSlicer");
     const fs::path legacy_data_dir(legacy_data_dir_str);
 
     std::cerr << "Legacy Flatpak data dir: " << legacy_data_dir << std::endl;
