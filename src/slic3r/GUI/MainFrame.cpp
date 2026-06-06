@@ -1333,7 +1333,7 @@ void MainFrame::init_tabpanel() {
         //BBS add pages
     m_monitor = new MonitorPanel(m_tabpanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     m_monitor->SetBackgroundColour(*wxWHITE);
-    m_tabpanel->AddPage(m_monitor, _L("Device"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
+    m_tabpanel->AddPage(m_monitor, _L("Bambu Device"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
 
     m_printer_view = new PrinterWebView(m_tabpanel);
     Bind(EVT_LOAD_PRINTER_URL, [this](LoadPrinterViewEvent &evt) {
@@ -1364,7 +1364,7 @@ void MainFrame::init_tabpanel() {
     // keep both so existing Bambu workflows aren't disrupted.
     m_forge_fleet = new ForgeFleetPanel(m_tabpanel);
     m_forge_fleet->SetBackgroundColour(*wxWHITE);
-    m_tabpanel->AddPage(m_forge_fleet, _L("Fleet"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
+    m_tabpanel->AddPage(m_forge_fleet, _L("Devices"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
 
     if (m_plater) {
         // load initial config
@@ -1400,7 +1400,7 @@ void MainFrame::show_device(bool bBBLPrinter) {
             m_monitor->SetBackgroundColour(*wxWHITE);
         }
         m_monitor->Show(false);
-        m_tabpanel->InsertPage(tpMonitor, m_monitor, _L("Device"), std::string("tab_monitor_active"), std::string("tab_monitor_active"));
+        m_tabpanel->InsertPage(tpMonitor, m_monitor, _L("Bambu Device"), std::string("tab_monitor_active"), std::string("tab_monitor_active"));
 
         if (wxGetApp().is_enable_multi_machine()) {
             if (!m_multi_machine) {
@@ -1453,7 +1453,7 @@ void MainFrame::show_device(bool bBBLPrinter) {
             });
         }
         m_printer_view->Show(false);
-        m_tabpanel->InsertPage(tpMonitor, m_printer_view, _L("Device"), std::string("tab_monitor_active"),
+        m_tabpanel->InsertPage(tpMonitor, m_printer_view, _L("Bambu Device"), std::string("tab_monitor_active"),
                                std::string("tab_monitor_active"));
     }
     fit_tab_labels(); // ORCA on printer change

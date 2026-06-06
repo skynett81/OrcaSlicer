@@ -54,7 +54,7 @@ void ForgeFleetPanel::build_ui()
 {
     auto* root = new wxBoxSizer(wxVERTICAL);
 
-    auto* title = new wxStaticText(this, wxID_ANY, _L("3DPrintForge Fleet"));
+    auto* title = new wxStaticText(this, wxID_ANY, _L("3DPrintForge Devices"));
     auto f = title->GetFont(); f.SetPointSize(f.GetPointSize() + 4); f.MakeBold();
     title->SetFont(f);
     root->Add(title, 0, wxALL, 14);
@@ -156,14 +156,14 @@ void ForgeFleetPanel::on_print(wxCommandEvent& /*evt*/)
 {
     long sel = m_list->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
     if (sel < 0 || sel >= (long)m_printers.size()) {
-        wxMessageBox(_L("Pick a printer first."), _L("3DPrintForge Fleet"), wxICON_INFORMATION);
+        wxMessageBox(_L("Pick a printer first."), _L("3DPrintForge Devices"), wxICON_INFORMATION);
         return;
     }
     // Real gcode-send path comes when we wire Plater export → fleet.
     // Stub for now so the button is wired and visible.
     wxMessageBox(wxString::Format(_L("Print queue for %s — not wired yet."),
                                   wxString::FromUTF8(m_printers[sel].name)),
-                 _L("3DPrintForge Fleet"), wxICON_INFORMATION);
+                 _L("3DPrintForge Devices"), wxICON_INFORMATION);
 }
 
 void ForgeFleetPanel::refresh_printer_list()
