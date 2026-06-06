@@ -45,6 +45,7 @@ private:
     void update_status_bar(const std::string& msg);
     void on_select(wxListEvent& evt);
     void update_detail();   // refresh the selected printer's info + camera
+    void send_control(const std::string& action); // pause/resume/stop selected
 
     std::unique_ptr<ForgeCloudAgent> m_agent;
 
@@ -57,6 +58,9 @@ private:
     wxButton*     m_btn_print      = nullptr;
     wxStaticText* m_detail_label   = nullptr;
     wxStaticBitmap* m_camera       = nullptr;
+    wxButton*     m_btn_pause       = nullptr;
+    wxButton*     m_btn_resume      = nullptr;
+    wxButton*     m_btn_stop        = nullptr;
     wxTimer       m_poll_timer;
 
     std::string   m_selected_printer_id;

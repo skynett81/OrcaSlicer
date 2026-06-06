@@ -62,6 +62,10 @@ public:
     // an empty string on failure. Endpoint: GET /api/printers/{id}/frame.jpeg.
     std::string get_camera_frame(const std::string& printer_id);
 
+    // Sends a print-control action (pause|resume|stop) to a printer.
+    // Endpoint: POST /api/printers/{id}/control. Returns true on success.
+    bool control_printer(const std::string& printer_id, const std::string& action);
+
     // Returns time of last successful API call — UI uses this to show
     // freshness in the fleet panel ("synced 12s ago").
     std::chrono::steady_clock::time_point last_synced() const { return m_last_synced; }

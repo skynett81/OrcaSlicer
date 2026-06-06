@@ -199,4 +199,17 @@ std::string ForgeCloudAgent::get_camera_frame(const std::string& printer_id)
     return res->body; // raw JPEG bytes
 }
 
+bool ForgeCloudAgent::control_printer(const std::string& printer_id, const std::string& action)
+{
+    auto cli = make_client(m_server_url);
+    json body = { { "action", action } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (!res || res->status >= 400) {
+        m_auth.last_error = res ? ("HTTP " + std::to_string(res->status)) : "Cannot reach server";
+        return false;
+    }
+    return true;
+}
+
 } // namespace Slic3r

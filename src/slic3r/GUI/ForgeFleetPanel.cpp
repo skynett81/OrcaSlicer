@@ -100,6 +100,18 @@ void ForgeFleetPanel::build_ui()
     m_camera = new wxStaticBitmap(this, wxID_ANY, wxBitmap());
     m_camera->SetMinSize(wxSize(320, 240));
     detail->Add(m_camera, 1, wxEXPAND);
+
+    // Print controls for the selected printer (routed through the dashboard,
+    // which dispatches per brand — Bambu MQTT, Moonraker REST, etc.).
+    auto* ctrl_row = new wxBoxSizer(wxHORIZONTAL);
+    m_btn_pause  = new wxButton(this, wxID_ANY, _L("Pause"));
+    m_btn_resume = new wxButton(this, wxID_ANY, _L("Resume"));
+    m_btn_stop   = new wxButton(this, wxID_ANY, _L("Stop"));
+    ctrl_row->Add(m_btn_pause,  0, wxRIGHT, 6);
+    ctrl_row->Add(m_btn_resume, 0, wxRIGHT, 6);
+    ctrl_row->Add(m_btn_stop,   0);
+    detail->Add(ctrl_row, 0, wxTOP, 8);
+
     body->Add(detail, 1, wxEXPAND);
 
     root->Add(body, 1, wxALL | wxEXPAND, 14);
@@ -111,6 +123,29 @@ void ForgeFleetPanel::build_ui()
     m_btn_refresh  ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_refresh, this);
     m_btn_print    ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_print, this);
     m_list->Bind(wxEVT_LIST_ITEM_SELECTED, &ForgeFleetPanel::on_select, this);
+    m_btn_pause ->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){ send_control("pause"); });
+    m_btn_resume->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){ send_control("resume"); });
+    m_btn_stop  ->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){ send_control("stop"); });
+}
+
+void ForgeFleetPanel::send_control(const std::string& action)
+{
+    if (m_selected_printer_id.empty()) {
+        wxMessageBox(_L("Select a printer first."), _L("3DPrintForge Devices"),
+                     wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+    if (action == "stop" &&
+        wxMessageBox(_L("Stop the print on this printer?"), _L("Stop print"),
+                     wxYES_NO | wxICON_WARNING, this) != wxYES)
+        return;
+
+    bool ok = m_agent->control_printer(m_selected_printer_id, action);
+    if (!ok)
+        wxMessageBox(wxString::Format(_L("Command failed: %s"),
+                     wxString::FromUTF8(m_agent->auth_state().last_error)),
+                     _L("3DPrintForge Devices"), wxOK | wxICON_ERROR, this);
+    update_detail();
 }
 
 void ForgeFleetPanel::on_select(wxListEvent& evt)
