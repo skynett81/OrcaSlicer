@@ -26,6 +26,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/ForgeLibraryDialog.hpp
     GUI/ForgeOnboardingDialog.cpp
     GUI/ForgeOnboardingDialog.hpp
+    GUI/ForgeFleetPanel.cpp
+    GUI/ForgeFleetPanel.hpp
     GUI/AmsMappingPopup.cpp
     GUI/AmsMappingPopup.hpp
     GUI/AMSMaterialsSetting.cpp
@@ -580,6 +582,8 @@ set(SLIC3R_GUI_SOURCES
     Utils/Bonjour.hpp
     Utils/CalibUtils.cpp
     Utils/CalibUtils.hpp
+    Utils/ForgeCloudAgent.cpp
+    Utils/ForgeCloudAgent.hpp
     Utils/ColorSpaceConvert.cpp
     Utils/ColorSpaceConvert.hpp
     Utils/CrealityPrint.cpp
@@ -834,6 +838,10 @@ if (UNIX AND NOT APPLE)
     target_link_libraries(libslic3r_gui ${GSTREAMER_LIBRARIES} ${GST_BASE_LIBRARIES})
     target_include_directories(libslic3r_gui SYSTEM PRIVATE ${GSTREAMER_INCLUDE_DIRS} ${GST_BASE_INCLUDE_DIRS})
 endif ()
+
+if (TARGET httplib::httplib)
+    target_link_libraries(libslic3r_gui httplib::httplib)
+endif()
 
 # Add a definition so that we can tell we are compiling slic3r.
 target_compile_definitions(libslic3r_gui PRIVATE SLIC3R_CURRENTLY_COMPILING_GUI_MODULE)

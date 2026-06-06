@@ -226,6 +226,7 @@ public:
         tpCalibration   = 6,
         tpAuxiliary     = 7,
         toDebugTool     = 8,
+        tpForgeFleet    = 9,
     };
 
     //BBS: add slice&&print status update logic
@@ -377,6 +378,9 @@ public:
     Plater*               m_plater { nullptr };
     //BBS: GUI refactor
     MonitorPanel*         m_monitor{ nullptr };
+    // 3DPrintForge: multi-brand fleet panel that lists every printer
+    // registered on the user's Forge Server, status + queue actions.
+    class ForgeFleetPanel* m_forge_fleet{ nullptr };
 
     //AuxiliaryPanel*       m_auxiliary{ nullptr };
     MultiMachinePage*     m_multi_machine{ nullptr };

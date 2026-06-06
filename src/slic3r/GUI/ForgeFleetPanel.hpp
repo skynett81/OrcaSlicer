@@ -1,0 +1,59 @@
+#pragma once
+
+#include <wx/panel.h>
+#include <wx/timer.h>
+
+#include "../Utils/ForgeCloudAgent.hpp"
+
+#include <memory>
+#include <vector>
+
+class wxListCtrl;
+class wxStaticText;
+class wxButton;
+class wxTextCtrl;
+
+namespace Slic3r { namespace GUI {
+
+// Multi-brand fleet panel — replaces (or sits alongside) OrcaSlicer's
+// Bambu-only Device tab. Reads the printer roster from the user's
+// 3DPrintForge Server and lets them queue prints, refresh status,
+// and connect a session.
+class ForgeFleetPanel : public wxPanel {
+public:
+    ForgeFleetPanel(wxWindow* parent);
+    ~ForgeFleetPanel() override;
+
+    // Called when the panel becomes visible — kicks a refresh and
+    // starts the polling timer. Stopping is handled in OnHide.
+    void on_show();
+    void on_hide();
+
+    ForgeCloudAgent* agent() { return m_agent.get(); }
+
+private:
+    void build_ui();
+    void on_refresh(wxCommandEvent& evt);
+    void on_configure(wxCommandEvent& evt);
+    void on_login(wxCommandEvent& evt);
+    void on_print(wxCommandEvent& evt);
+    void on_timer(wxTimerEvent& evt);
+
+    void refresh_printer_list();
+    void update_status_bar(const std::string& msg);
+
+    std::unique_ptr<ForgeCloudAgent> m_agent;
+
+    wxStaticText* m_status_label   = nullptr;
+    wxStaticText* m_server_label   = nullptr;
+    wxListCtrl*   m_list           = nullptr;
+    wxButton*     m_btn_refresh    = nullptr;
+    wxButton*     m_btn_configure  = nullptr;
+    wxButton*     m_btn_login      = nullptr;
+    wxButton*     m_btn_print      = nullptr;
+    wxTimer       m_poll_timer;
+
+    std::vector<ForgePrinter> m_printers;
+};
+
+}} // namespace Slic3r::GUI

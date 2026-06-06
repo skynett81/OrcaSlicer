@@ -42,6 +42,7 @@
 #include "format.hpp"
 #include "ForgeLibraryDialog.hpp"
 #include "ForgeOnboardingDialog.hpp"
+#include "ForgeFleetPanel.hpp"
 // BBS
 #include "PartPlate.hpp"
 #include "Preferences.hpp"
@@ -1353,6 +1354,13 @@ void MainFrame::init_tabpanel() {
     m_calibration = new CalibrationPanel(m_tabpanel, wxID_ANY, wxDefaultPosition, wxDefaultSize);
     m_calibration->SetBackgroundColour(*wxWHITE);
     m_tabpanel->AddPage(m_calibration, _L("Calibration"), std::string("tab_calibration_active"), std::string("tab_calibration_active"), false);
+
+    // 3DPrintForge Fleet — multi-brand printer roster from the user's
+    // Forge Server. Lives next to the Bambu-specific Device tab; we
+    // keep both so existing Bambu workflows aren't disrupted.
+    m_forge_fleet = new ForgeFleetPanel(m_tabpanel);
+    m_forge_fleet->SetBackgroundColour(*wxWHITE);
+    m_tabpanel->AddPage(m_forge_fleet, _L("Fleet"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
 
     if (m_plater) {
         // load initial config
