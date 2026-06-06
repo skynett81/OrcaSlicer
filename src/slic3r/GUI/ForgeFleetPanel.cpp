@@ -235,16 +235,19 @@ void ForgeFleetPanel::build_ui()
     m_list->AppendColumn(_L("Status"),   wxLIST_FORMAT_LEFT, 140);
     m_list->AppendColumn(_L("Progress"), wxLIST_FORMAT_LEFT, 100);
 
-    // Printer list on the left, per-printer detail + camera on the right.
+    // Layout mirrors the Bambu Device monitor: a narrow printer list on the
+    // left, a large camera (+ status / progress / filament) in the centre, and
+    // the tall Control panel on the right.
+    m_list->SetMinSize(wxSize(250, 470));
     auto* body = new wxBoxSizer(wxHORIZONTAL);
-    body->Add(m_list, 2, wxEXPAND | wxRIGHT, 10);
+    body->Add(m_list, 0, wxEXPAND | wxRIGHT, 12);
 
     auto* detail = new wxBoxSizer(wxVERTICAL);
+    m_camera = new wxStaticBitmap(this, wxID_ANY, wxBitmap());
+    m_camera->SetMinSize(wxSize(460, 345));
+    detail->Add(m_camera, 1, wxEXPAND | wxBOTTOM, 8);
     m_detail_label = new wxStaticText(this, wxID_ANY, _L("Select a printer to see details."));
     detail->Add(m_detail_label, 0, wxBOTTOM, 8);
-    m_camera = new wxStaticBitmap(this, wxID_ANY, wxBitmap());
-    m_camera->SetMinSize(wxSize(320, 240));
-    detail->Add(m_camera, 1, wxEXPAND);
 
     // Filament slots — a color swatch + material per toolhead, mirroring the
     // Snapmaker Orca device layout. Clicking a slot selects (picks) that tool.
@@ -395,9 +398,9 @@ void ForgeFleetPanel::build_ui()
         m_motion_panel->SetSizer(outer);
     }
     m_motion_panel->Hide();
-    detail->Add(m_motion_panel, 0, wxTOP, 10);
 
-    body->Add(detail, 1, wxEXPAND);
+    body->Add(detail, 1, wxEXPAND | wxRIGHT, 12);
+    body->Add(m_motion_panel, 0, wxEXPAND);
 
     root->Add(body, 1, wxALL | wxEXPAND, 14);
 
