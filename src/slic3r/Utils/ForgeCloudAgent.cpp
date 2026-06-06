@@ -241,4 +241,44 @@ ForgeLiveState ForgeCloudAgent::get_printer_state(const std::string& printer_id)
     return ls;
 }
 
+bool ForgeCloudAgent::control_home(const std::string& printer_id)
+{
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "home" } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
+bool ForgeCloudAgent::control_move(const std::string& printer_id, const std::string& axis, double dist_mm)
+{
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "move" }, { "axis", axis }, { "dist", dist_mm } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
+bool ForgeCloudAgent::control_extrude(const std::string& printer_id, double amount_mm)
+{
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "extrude" }, { "amount", amount_mm } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
+bool ForgeCloudAgent::control_tool(const std::string& printer_id, int tool_index)
+{
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "select_tool" }, { "tool", tool_index } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
 } // namespace Slic3r

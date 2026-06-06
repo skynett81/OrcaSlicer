@@ -61,6 +61,7 @@ private:
     wxButton*     m_btn_pause       = nullptr;
     wxButton*     m_btn_resume      = nullptr;
     wxButton*     m_btn_stop        = nullptr;
+    wxPanel*      m_motion_panel    = nullptr;  // jog/extrude/home/tools (Klipper/Moonraker)
     wxTimer       m_poll_timer;
 
     std::string   m_selected_printer_id;

@@ -112,6 +112,55 @@ void ForgeFleetPanel::build_ui()
     ctrl_row->Add(m_btn_stop,   0);
     detail->Add(ctrl_row, 0, wxTOP, 8);
 
+    // Motion / tool controls — shown only for Klipper/Moonraker printers
+    // (jog/extrude/home/tool-select route to gcode via the dashboard).
+    m_motion_panel = new wxPanel(this, wxID_ANY);
+    {
+        auto* mp = new wxBoxSizer(wxVERTICAL);
+        auto jog = [this](const std::string& ax, double d) {
+            if (!m_selected_printer_id.empty()) m_agent->control_move(m_selected_printer_id, ax, d);
+        };
+
+        auto* tools = new wxBoxSizer(wxHORIZONTAL);
+        tools->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Tools:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
+        for (int t = 0; t < 4; ++t) {
+            auto* b = new wxButton(m_motion_panel, wxID_ANY, wxString::Format("T%d", t + 1), wxDefaultPosition, wxSize(40, -1));
+            b->Bind(wxEVT_BUTTON, [this, t](wxCommandEvent&) {
+                if (!m_selected_printer_id.empty()) m_agent->control_tool(m_selected_printer_id, t);
+            });
+            tools->Add(b, 0, wxRIGHT, 4);
+        }
+        mp->Add(tools, 0, wxBOTTOM, 6);
+
+        auto* jrow = new wxBoxSizer(wxHORIZONTAL);
+        auto* home = new wxButton(m_motion_panel, wxID_ANY, _L("Home"));
+        home->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+            if (!m_selected_printer_id.empty()) m_agent->control_home(m_selected_printer_id);
+        });
+        jrow->Add(home, 0, wxRIGHT, 10);
+        struct J { const char* lbl; const char* ax; double d; };
+        for (const J& j : { J{"X-","X",-10}, J{"X+","X",10}, J{"Y-","Y",-10}, J{"Y+","Y",10}, J{"Z-","Z",-10}, J{"Z+","Z",10} }) {
+            auto* b = new wxButton(m_motion_panel, wxID_ANY, j.lbl, wxDefaultPosition, wxSize(40, -1));
+            std::string ax = j.ax; double d = j.d;
+            b->Bind(wxEVT_BUTTON, [jog, ax, d](wxCommandEvent&) { jog(ax, d); });
+            jrow->Add(b, 0, wxRIGHT, 4);
+        }
+        mp->Add(jrow, 0, wxBOTTOM, 6);
+
+        auto* erow = new wxBoxSizer(wxHORIZONTAL);
+        auto* ext = new wxButton(m_motion_panel, wxID_ANY, _L("Extrude"));
+        auto* ret = new wxButton(m_motion_panel, wxID_ANY, _L("Retract"));
+        ext->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_extrude(m_selected_printer_id, 5);  });
+        ret->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_extrude(m_selected_printer_id, -5); });
+        erow->Add(ext, 0, wxRIGHT, 4);
+        erow->Add(ret, 0);
+        mp->Add(erow, 0);
+
+        m_motion_panel->SetSizer(mp);
+    }
+    m_motion_panel->Hide();
+    detail->Add(m_motion_panel, 0, wxTOP, 10);
+
     body->Add(detail, 1, wxEXPAND);
 
     root->Add(body, 1, wxALL | wxEXPAND, 14);
@@ -168,6 +217,13 @@ void ForgeFleetPanel::update_detail()
     for (const auto& fp : m_printers)
         if (fp.id == m_selected_printer_id) { p = &fp; break; }
     if (!p) return;
+
+    // Motion/tool controls only apply to gcode (Klipper/Moonraker) printers.
+    const bool gcode_capable = (p->vendor == "moonraker" || p->vendor == "klipper");
+    if (m_motion_panel && m_motion_panel->IsShown() != gcode_capable) {
+        m_motion_panel->Show(gcode_capable);
+        Layout();
+    }
 
     wxString info = wxString::FromUTF8(p->name);
     if (!p->vendor.empty()) info += " · " + wxString::FromUTF8(p->vendor);

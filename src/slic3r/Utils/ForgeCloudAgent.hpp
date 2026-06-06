@@ -80,6 +80,13 @@ public:
     // Endpoint: GET /api/printers/{id}/state.
     ForgeLiveState get_printer_state(const std::string& printer_id);
 
+    // Motion / tool control (Klipper/Moonraker printers, e.g. Snapmaker U1).
+    // All POST /api/printers/{id}/control. Return true on success.
+    bool control_home(const std::string& printer_id);
+    bool control_move(const std::string& printer_id, const std::string& axis, double dist_mm);
+    bool control_extrude(const std::string& printer_id, double amount_mm);
+    bool control_tool(const std::string& printer_id, int tool_index);
+
     // Returns time of last successful API call — UI uses this to show
     // freshness in the fleet panel ("synced 12s ago").
     std::chrono::steady_clock::time_point last_synced() const { return m_last_synced; }
