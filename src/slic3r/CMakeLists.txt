@@ -26,6 +26,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/ForgeLibraryDialog.hpp
     GUI/ForgeCloud.cpp
     GUI/ForgeCloud.hpp
+    GUI/ForgeCloudSettingsDialog.cpp
+    GUI/ForgeCloudSettingsDialog.hpp
     GUI/ForgeOnboardingDialog.cpp
     GUI/ForgeOnboardingDialog.hpp
     GUI/ForgeFleetPanel.cpp

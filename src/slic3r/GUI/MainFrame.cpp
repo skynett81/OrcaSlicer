@@ -44,6 +44,7 @@
 #include "format.hpp"
 #include "ForgeLibraryDialog.hpp"
 #include "ForgeCloud.hpp"
+#include "ForgeCloudSettingsDialog.hpp"
 #include "ForgeOnboardingDialog.hpp"
 #include "ForgeFleetPanel.hpp"
 // BBS
@@ -3367,6 +3368,13 @@ void MainFrame::init_menubar_as_editor()
         _L("Upload the current plate to the 3DPrintForge dashboard queue"),
         [this](wxCommandEvent&) { send_plate_to_3dprintforge(); }, "", nullptr,
         [this]() { return true; }, this);
+    append_menu_item(forge_menu_linux, wxID_ANY, _L("Cloud && Remote Settings..."),
+        _L("Configure the 3DPrintForge dashboard URL and cloud providers"),
+        [this](wxCommandEvent&) {
+            Slic3r::GUI::ForgeCloudSettingsDialog dlg(this);
+            dlg.ShowModal();
+        }, "", nullptr,
+        [this]() { return true; }, this);
     m_topbar->AddDropDownSubMenu(forge_menu_linux, _L("Forge"));
 
     m_topbar->AddDropDownSubMenu(helpMenu, _L("Help"));
@@ -3592,6 +3600,13 @@ void MainFrame::init_menubar_as_editor()
     append_menu_item(forge_menu, wxID_ANY, _L("Send to 3DPrintForge..."),
         _L("Upload the current plate to the 3DPrintForge dashboard queue"),
         [this](wxCommandEvent&) { send_plate_to_3dprintforge(); }, "", nullptr,
+        [this]() { return true; }, this);
+    append_menu_item(forge_menu, wxID_ANY, _L("Cloud && Remote Settings..."),
+        _L("Configure the 3DPrintForge dashboard URL and cloud providers"),
+        [this](wxCommandEvent&) {
+            Slic3r::GUI::ForgeCloudSettingsDialog dlg(this);
+            dlg.ShowModal();
+        }, "", nullptr,
         [this]() { return true; }, this);
     m_menubar->Append(forge_menu, wxString::Format("&%s", _L("Forge")));
 

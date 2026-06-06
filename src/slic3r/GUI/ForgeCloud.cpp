@@ -9,16 +9,36 @@
 #include <wx/utils.h>   // wxExecute
 #include <wx/arrstr.h>
 
+#include "GUI_App.hpp"
+#include "libslic3r/AppConfig.hpp"
+
 namespace Slic3r { namespace GUI {
 
-// Dashboard base URL — overridable via FORGE_DASHBOARD_URL, defaults to the
-// local 3DPrintForge instance. (Kept in sync with ForgeLibraryDialog.)
-static std::string dashboard_url()
+std::string forge_dashboard_url()
 {
+    if (AppConfig* cfg = wxGetApp().app_config) {
+        std::string v = cfg->get("forge_dashboard_url");
+        if (!v.empty()) return v;
+    }
     if (const char* env = std::getenv("FORGE_DASHBOARD_URL"); env && *env)
         return env;
+    if (AppConfig* cfg = wxGetApp().app_config) {
+        std::string v = cfg->get("forge_server_url"); // fleet panel's key
+        if (!v.empty()) return v;
+    }
     return "https://localhost:3443";
 }
+
+void set_forge_dashboard_url(const std::string& url)
+{
+    if (AppConfig* cfg = wxGetApp().app_config) {
+        cfg->set("forge_dashboard_url", url);
+        cfg->set("forge_server_url", url); // keep the fleet agent in sync
+    }
+}
+
+// Internal alias used by the provider below.
+static std::string dashboard_url() { return forge_dashboard_url(); }
 
 // Minimal URL-encoding for query values (filenames may contain spaces).
 static std::string url_encode(const std::string& s)

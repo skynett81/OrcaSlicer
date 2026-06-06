@@ -53,6 +53,13 @@ public:
 std::vector<CloudProvider*> cloud_providers();
 CloudProvider*              cloud_provider(const std::string& id);
 
+// Shared 3DPrintForge dashboard URL.
+// Resolution order: AppConfig "forge_dashboard_url" -> env FORGE_DASHBOARD_URL
+// -> AppConfig "forge_server_url" (fleet panel's key) -> https://localhost:3443.
+std::string forge_dashboard_url();
+// Persists the URL to AppConfig (both keys, so the fleet panel agrees).
+void        set_forge_dashboard_url(const std::string& url);
+
 }} // namespace Slic3r::GUI
 
 #endif // slic3r_GUI_ForgeCloud_hpp_
