@@ -50,10 +50,6 @@ void ForgeControlPanel::build()
 
     auto* root = new wxBoxSizer(wxVERTICAL);
 
-    auto* title = new wxStaticText(this, wxID_ANY, _L("Control"));
-    { auto f = title->GetFont(); f.SetPointSize(f.GetPointSize() + 2); f.MakeBold(); title->SetFont(f); }
-    root->Add(title, 0, wxLEFT | wxTOP | wxBOTTOM, FromDIP(6));
-
     // ---- temperature + axis + extruder group (rounded StaticBox) ----
     auto* box = new StaticBox(this);
     box->SetBackgroundColor(StateColor(std::make_pair(*wxWHITE, (int) StateColor::Normal)));

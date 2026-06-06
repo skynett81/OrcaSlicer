@@ -19,11 +19,9 @@ namespace Slic3r { namespace GUI {
 
 namespace {
 constexpr int POLL_INTERVAL_MS = 5000;
-constexpr int COL_NAME     = 0;
-constexpr int COL_VENDOR   = 1;
-constexpr int COL_HOST     = 2;
-constexpr int COL_STATUS   = 3;
-constexpr int COL_PROGRESS = 4;
+constexpr int COL_NAME   = 0;
+constexpr int COL_VENDOR = 1;
+constexpr int COL_STATUS = 2;
 } // namespace
 
 ForgeFleetPanel::ForgeFleetPanel(wxWindow* parent)
@@ -58,52 +56,62 @@ void ForgeFleetPanel::build_ui()
 {
     auto* root = new wxBoxSizer(wxVERTICAL);
 
-    auto* title = new wxStaticText(this, wxID_ANY, _L("3DPrintForge Devices"));
-    auto f = title->GetFont(); f.SetPointSize(f.GetPointSize() + 4); f.MakeBold();
-    title->SetFont(f);
-    root->Add(title, 0, wxALL, 14);
+    // Native-style section title bar (matches StatusPanel's STATUS_TITLE_BG bars
+    // on the Bambu Device monitor): a light header strip with a bold grey label.
+    auto make_title = [this](const wxString& text) {
+        auto* bar = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(-1, FromDIP(34)));
+        bar->SetBackgroundColour(wxColour(248, 248, 248));
+        auto* s = new wxBoxSizer(wxHORIZONTAL);
+        auto* lbl = new wxStaticText(bar, wxID_ANY, text);
+        auto lf = lbl->GetFont(); lf.MakeBold(); lbl->SetFont(lf);
+        lbl->SetForegroundColour(wxColour(107, 107, 107));
+        s->Add(lbl, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(12));
+        bar->SetSizer(s);
+        return bar;
+    };
 
+    auto* body = new wxBoxSizer(wxHORIZONTAL);
+
+    // ---- Left column: printer picker + account / refresh ----
+    auto* leftcol = new wxBoxSizer(wxVERTICAL);
+    leftcol->Add(make_title(_L("Printers")), 0, wxEXPAND);
+
+    m_list = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                            wxLC_REPORT | wxLC_SINGLE_SEL);
+    m_list->AppendColumn(_L("Printer"), wxLIST_FORMAT_LEFT, FromDIP(140));
+    m_list->AppendColumn(_L("Vendor"),  wxLIST_FORMAT_LEFT, FromDIP(90));
+    m_list->AppendColumn(_L("Status"),  wxLIST_FORMAT_LEFT, FromDIP(80));
+    m_list->SetMinSize(wxSize(FromDIP(320), FromDIP(420)));
+    leftcol->Add(m_list, 1, wxEXPAND | wxTOP, FromDIP(2));
+
+    m_status_label = new wxStaticText(this, wxID_ANY, _L("Not signed in."));
+    leftcol->Add(m_status_label, 0, wxLEFT | wxTOP, FromDIP(6));
     m_server_label = new wxStaticText(this, wxID_ANY,
         wxString::Format(_L("Server: %s"), wxString::FromUTF8(m_agent->server_url())));
-    root->Add(m_server_label, 0, wxLEFT | wxRIGHT, 14);
+    { auto sf = m_server_label->GetFont(); sf.SetPointSize(sf.GetPointSize() - 1); m_server_label->SetFont(sf); }
+    leftcol->Add(m_server_label, 0, wxLEFT | wxTOP | wxBOTTOM, FromDIP(4));
 
-    m_status_label = new wxStaticText(this, wxID_ANY, _L("Not signed in. Click Login."));
-    root->Add(m_status_label, 0, wxLEFT | wxRIGHT | wxBOTTOM, 14);
-
-    // Action buttons.
     auto* btn_row = new wxBoxSizer(wxHORIZONTAL);
     m_btn_login     = new wxButton(this, wxID_ANY, _L("Login..."));
     m_btn_configure = new wxButton(this, wxID_ANY, _L("Server URL..."));
     m_btn_refresh   = new wxButton(this, wxID_ANY, _L("Refresh"));
-    m_btn_print     = new wxButton(this, wxID_ANY, _L("Send active gcode to selected"));
-    btn_row->Add(m_btn_login,     0, wxRIGHT, 6);
-    btn_row->Add(m_btn_configure, 0, wxRIGHT, 6);
-    btn_row->Add(m_btn_refresh,   0, wxRIGHT, 12);
-    btn_row->AddStretchSpacer(1);
-    btn_row->Add(m_btn_print,     0);
-    root->Add(btn_row, 0, wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 14);
+    m_btn_print     = new wxButton(this, wxID_ANY, _L("Send G-code"));
+    btn_row->Add(m_btn_login,   0, wxRIGHT, 4);
+    btn_row->Add(m_btn_refresh, 0, wxRIGHT, 4);
+    btn_row->Add(m_btn_configure, 0);
+    leftcol->Add(btn_row, 0, wxTOP, FromDIP(4));
+    leftcol->Add(m_btn_print, 0, wxTOP, FromDIP(4));
+    body->Add(leftcol, 0, wxEXPAND | wxRIGHT, FromDIP(10));
 
-    m_list = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                            wxLC_REPORT | wxLC_SINGLE_SEL);
-    m_list->AppendColumn(_L("Printer"),  wxLIST_FORMAT_LEFT, 200);
-    m_list->AppendColumn(_L("Vendor"),   wxLIST_FORMAT_LEFT, 120);
-    m_list->AppendColumn(_L("Host"),     wxLIST_FORMAT_LEFT, 160);
-    m_list->AppendColumn(_L("Status"),   wxLIST_FORMAT_LEFT, 140);
-    m_list->AppendColumn(_L("Progress"), wxLIST_FORMAT_LEFT, 100);
-
-    // Layout mirrors the Bambu Device monitor: a narrow printer list on the
-    // left, a large camera (+ status / progress / filament) in the centre, and
-    // the tall Control panel on the right.
-    m_list->SetMinSize(wxSize(250, 470));
-    auto* body = new wxBoxSizer(wxHORIZONTAL);
-    body->Add(m_list, 0, wxEXPAND | wxRIGHT, 12);
-
+    // ---- Center column: camera + printing progress ----
     auto* detail = new wxBoxSizer(wxVERTICAL);
+    detail->Add(make_title(_L("Camera")), 0, wxEXPAND);
     m_camera = new wxStaticBitmap(this, wxID_ANY, wxBitmap());
-    m_camera->SetMinSize(wxSize(460, 345));
-    detail->Add(m_camera, 1, wxEXPAND | wxBOTTOM, 8);
+    m_camera->SetMinSize(wxSize(FromDIP(480), FromDIP(360)));
+    detail->Add(m_camera, 1, wxEXPAND | wxTOP, FromDIP(2));
+    detail->Add(make_title(_L("Printing progress")), 0, wxEXPAND | wxTOP, FromDIP(8));
     m_detail_label = new wxStaticText(this, wxID_ANY, _L("Select a printer to see details."));
-    detail->Add(m_detail_label, 0, wxBOTTOM, 8);
+    detail->Add(m_detail_label, 0, wxTOP | wxLEFT, FromDIP(6));
 
     // Filament slots — a color swatch + material per toolhead, mirroring the
     // Snapmaker Orca device layout. Clicking a slot selects (picks) that tool.
@@ -167,10 +175,15 @@ void ForgeFleetPanel::build_ui()
     m_control = new ForgeControlPanel(this, std::move(cb));
     m_control->Hide();
 
-    body->Add(detail, 1, wxEXPAND | wxRIGHT, 12);
-    body->Add(m_control, 0, wxEXPAND);
+    body->Add(detail, 1, wxEXPAND | wxRIGHT, FromDIP(10));
 
-    root->Add(body, 1, wxALL | wxEXPAND, 14);
+    // ---- Right column: "Control" title bar + the native control widgets ----
+    auto* rightcol = new wxBoxSizer(wxVERTICAL);
+    rightcol->Add(make_title(_L("Control")), 0, wxEXPAND);
+    rightcol->Add(m_control, 1, wxEXPAND | wxTOP, FromDIP(2));
+    body->Add(rightcol, 0, wxEXPAND);
+
+    root->Add(body, 1, wxALL | wxEXPAND, FromDIP(12));
 
     SetSizer(root);
 
@@ -393,11 +406,9 @@ void ForgeFleetPanel::refresh_printer_list()
         const auto& p = m_printers[i];
         long row = m_list->InsertItem((long)i, wxString::FromUTF8(p.name));
         m_list->SetItem(row, COL_VENDOR, wxString::FromUTF8(p.vendor));
-        m_list->SetItem(row, COL_HOST,   wxString::FromUTF8(p.ip));
         wxString status = p.status.empty() ? wxString::FromUTF8(p.state) : wxString::FromUTF8(p.status);
+        if (p.progress_pct > 0) status += wxString::Format(" %d%%", p.progress_pct);
         m_list->SetItem(row, COL_STATUS, status);
-        if (p.progress_pct > 0)
-            m_list->SetItem(row, COL_PROGRESS, wxString::Format("%d%%", p.progress_pct));
     }
 
     if (m_printers.empty()) {
