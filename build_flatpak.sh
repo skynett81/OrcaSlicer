@@ -255,8 +255,8 @@ mkdir -p "$BUILD_DIR"
 rm -rf "$BUILD_DIR/build-dir"
 
 # Check if flatpak manifest exists
-if [[ ! -f "./scripts/flatpak/com.orcaslicer.OrcaSlicer.yml" ]]; then
-    echo -e "${RED}Error: Flatpak manifest not found at scripts/flatpak/com.orcaslicer.OrcaSlicer.yml${NC}"
+if [[ ! -f "./scripts/flatpak/com.3dprintforge.Slicer.yml" ]]; then
+    echo -e "${RED}Error: Flatpak manifest not found at scripts/flatpak/com.3dprintforge.Slicer.yml${NC}"
     exit 1
 fi
 
@@ -316,11 +316,11 @@ if [[ "$DISABLE_ROFILES_FUSE" == true ]]; then
 fi
 
 # Use a temp manifest with no-debuginfo if requested
-MANIFEST="scripts/flatpak/com.orcaslicer.OrcaSlicer.yml"
+MANIFEST="scripts/flatpak/com.3dprintforge.Slicer.yml"
 if [[ "$NO_DEBUGINFO" == true ]]; then
-    MANIFEST="scripts/flatpak/com.orcaslicer.OrcaSlicer.no-debug.yml"
+    MANIFEST="scripts/flatpak/com.3dprintforge.Slicer.no-debug.yml"
     sed '/^build-options:/a\  no-debuginfo: true\n  strip: true' \
-        scripts/flatpak/com.orcaslicer.OrcaSlicer.yml > "$MANIFEST"
+        scripts/flatpak/com.3dprintforge.Slicer.yml > "$MANIFEST"
     echo -e "${YELLOW}Debug info disabled (using temp manifest)${NC}"
 fi
 
@@ -330,19 +330,19 @@ if ! flatpak-builder \
     "$MANIFEST"; then
     echo -e "${RED}Error: flatpak-builder failed${NC}"
     echo -e "${YELLOW}Check the build log above for details${NC}"
-    rm -f "scripts/flatpak/com.orcaslicer.OrcaSlicer.no-debug.yml"
+    rm -f "scripts/flatpak/com.3dprintforge.Slicer.no-debug.yml"
     exit 1
 fi
 
 # Clean up temp manifest
-rm -f "scripts/flatpak/com.orcaslicer.OrcaSlicer.no-debug.yml"
+rm -f "scripts/flatpak/com.3dprintforge.Slicer.no-debug.yml"
 
 # Create bundle
 echo -e "${YELLOW}Creating Flatpak bundle...${NC}"
 if ! flatpak build-bundle \
     "$BUILD_DIR/repo" \
     "$BUNDLE_NAME" \
-    com.orcaslicer.OrcaSlicer \
+    com.3dprintforge.Slicer \
     --arch="$ARCH"; then
     echo -e "${RED}Error: Failed to create Flatpak bundle${NC}"
     exit 1
@@ -361,10 +361,10 @@ echo -e "${BLUE}To install the Flatpak:${NC}"
 echo -e "flatpak install --user $BUNDLE_NAME"
 echo ""
 echo -e "${BLUE}To run OrcaSlicer:${NC}"
-echo -e "flatpak run com.orcaslicer.OrcaSlicer"
+echo -e "flatpak run com.3dprintforge.Slicer"
 echo ""
 echo -e "${BLUE}To uninstall:${NC}"
-echo -e "flatpak uninstall --user com.orcaslicer.OrcaSlicer"
+echo -e "flatpak uninstall --user com.3dprintforge.Slicer"
 echo ""
 if [[ "$FORCE_CLEAN" != true ]]; then
     echo -e "${BLUE}Cache Management:${NC}"
