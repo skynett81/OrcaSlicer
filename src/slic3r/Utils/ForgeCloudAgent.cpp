@@ -314,4 +314,39 @@ bool ForgeCloudAgent::control_tool(const std::string& printer_id, int tool_index
     return res && res->status < 400;
 }
 
+bool ForgeCloudAgent::control_fan(const std::string& printer_id, int percent)
+{
+    percent = std::max(0, std::min(100, percent));
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "set_fan" }, { "percent", percent } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
+bool ForgeCloudAgent::control_light(const std::string& printer_id, bool on)
+{
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "set_light" }, { "on", on } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
+bool ForgeCloudAgent::control_speed(const std::string& printer_id, int percent)
+{
+    percent = std::max(10, std::min(300, percent));
+    // Bambu accepts a preset level (1 silent, 2 standard, 3 sport, 4 ludicrous);
+    // Moonraker uses the raw percentage (M220). Send both so either connector works.
+    int level = percent <= 75 ? 1 : percent <= 110 ? 2 : percent <= 150 ? 3 : 4;
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "set_speed" }, { "percent", percent }, { "level", level } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
 } // namespace Slic3r

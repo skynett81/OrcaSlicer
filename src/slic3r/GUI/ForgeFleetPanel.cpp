@@ -13,6 +13,7 @@
 #include <wx/statbmp.h>
 #include <wx/mstream.h>
 #include <wx/image.h>
+#include <wx/gbsizer.h>
 
 namespace Slic3r { namespace GUI {
 
@@ -146,14 +147,19 @@ void ForgeFleetPanel::build_ui()
     ctrl_row->Add(m_btn_stop,   0);
     detail->Add(ctrl_row, 0, wxTOP, 8);
 
-    // Motion / tool controls — shown only for Klipper/Moonraker printers
-    // (jog/extrude/home/tool-select route to gcode via the dashboard).
+    // Control panel — shown only for Klipper/Moonraker printers (jog/extrude/
+    // home/tool + fan/lamp/speed route to gcode via the dashboard). Laid out
+    // to mirror the Bambu Device "Control" tab: a tool/jog/extruder column on
+    // the left, fan/lamp/speed on the right.
     m_motion_panel = new wxPanel(this, wxID_ANY);
     {
-        auto* mp = new wxBoxSizer(wxVERTICAL);
-        auto jog = [this](const std::string& ax, double d) {
-            if (!m_selected_printer_id.empty()) m_agent->control_move(m_selected_printer_id, ax, d);
-        };
+        auto* outer = new wxBoxSizer(wxVERTICAL);
+        outer->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Control")), 0, wxBOTTOM, 6);
+
+        auto* cols = new wxBoxSizer(wxHORIZONTAL);
+
+        // ---- Left column: tools, jog cross + Z (Bed), extruder ----
+        auto* left = new wxBoxSizer(wxVERTICAL);
 
         auto* tools = new wxBoxSizer(wxHORIZONTAL);
         tools->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Tools:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
@@ -164,33 +170,82 @@ void ForgeFleetPanel::build_ui()
             });
             tools->Add(b, 0, wxRIGHT, 4);
         }
-        mp->Add(tools, 0, wxBOTTOM, 6);
+        left->Add(tools, 0, wxBOTTOM, 8);
 
-        auto* jrow = new wxBoxSizer(wxHORIZONTAL);
-        auto* home = new wxButton(m_motion_panel, wxID_ANY, _L("Home"));
+        auto jog = [this](const std::string& ax, double d) {
+            if (!m_selected_printer_id.empty()) m_agent->control_move(m_selected_printer_id, ax, d);
+        };
+        auto mk = [&](const char* lbl, const std::string& ax, double d) {
+            auto* b = new wxButton(m_motion_panel, wxID_ANY, lbl, wxDefaultPosition, wxSize(44, 28));
+            b->Bind(wxEVT_BUTTON, [jog, ax, d](wxCommandEvent&) { jog(ax, d); });
+            return b;
+        };
+        auto* home = new wxButton(m_motion_panel, wxID_ANY, _L("Home"), wxDefaultPosition, wxSize(44, 28));
         home->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
             if (!m_selected_printer_id.empty()) m_agent->control_home(m_selected_printer_id);
         });
-        jrow->Add(home, 0, wxRIGHT, 10);
-        struct J { const char* lbl; const char* ax; double d; };
-        for (const J& j : { J{"X-","X",-10}, J{"X+","X",10}, J{"Y-","Y",-10}, J{"Y+","Y",10}, J{"Z-","Z",-10}, J{"Z+","Z",10} }) {
-            auto* b = new wxButton(m_motion_panel, wxID_ANY, j.lbl, wxDefaultPosition, wxSize(40, -1));
-            std::string ax = j.ax; double d = j.d;
-            b->Bind(wxEVT_BUTTON, [jog, ax, d](wxCommandEvent&) { jog(ax, d); });
-            jrow->Add(b, 0, wxRIGHT, 4);
-        }
-        mp->Add(jrow, 0, wxBOTTOM, 6);
+
+        // X/Y dial (Y+ top, Home centre, X-/X+ sides, Y- bottom) + a Z (Bed) column.
+        auto* grid = new wxGridBagSizer(3, 3);
+        grid->Add(mk("Y+", "Y",  10), wxGBPosition(0, 1));
+        grid->Add(mk("X-", "X", -10), wxGBPosition(1, 0));
+        grid->Add(home,               wxGBPosition(1, 1));
+        grid->Add(mk("X+", "X",  10), wxGBPosition(1, 2));
+        grid->Add(mk("Y-", "Y", -10), wxGBPosition(2, 1));
+        grid->Add(mk("Z+", "Z",  10), wxGBPosition(0, 3));
+        grid->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Bed")), wxGBPosition(1, 3), wxDefaultSpan, wxALIGN_CENTER);
+        grid->Add(mk("Z-", "Z", -10), wxGBPosition(2, 3));
+        left->Add(grid, 0, wxBOTTOM, 8);
 
         auto* erow = new wxBoxSizer(wxHORIZONTAL);
         auto* ext = new wxButton(m_motion_panel, wxID_ANY, _L("Extrude"));
         auto* ret = new wxButton(m_motion_panel, wxID_ANY, _L("Retract"));
         ext->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_extrude(m_selected_printer_id, 5);  });
         ret->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_extrude(m_selected_printer_id, -5); });
+        erow->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Extruder:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
         erow->Add(ext, 0, wxRIGHT, 4);
         erow->Add(ret, 0);
-        mp->Add(erow, 0);
+        left->Add(erow, 0);
 
-        m_motion_panel->SetSizer(mp);
+        cols->Add(left, 0, wxRIGHT, 28);
+
+        // ---- Right column: fan, lamp, speed (as on the reference) ----
+        auto* right = new wxBoxSizer(wxVERTICAL);
+
+        auto* fanrow = new wxBoxSizer(wxHORIZONTAL);
+        fanrow->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Fan")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+        for (int pct : { 0, 50, 100 }) {
+            wxString lbl = (pct == 0) ? _L("Off") : wxString::Format("%d%%", pct);
+            auto* b = new wxButton(m_motion_panel, wxID_ANY, lbl, wxDefaultPosition, wxSize(48, -1));
+            b->Bind(wxEVT_BUTTON, [this, pct](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_fan(m_selected_printer_id, pct); });
+            fanrow->Add(b, 0, wxRIGHT, 4);
+        }
+        right->Add(fanrow, 0, wxBOTTOM, 8);
+
+        auto* lamprow = new wxBoxSizer(wxHORIZONTAL);
+        lamprow->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Lamp")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+        auto* lon  = new wxButton(m_motion_panel, wxID_ANY, _L("On"),  wxDefaultPosition, wxSize(48, -1));
+        auto* loff = new wxButton(m_motion_panel, wxID_ANY, _L("Off"), wxDefaultPosition, wxSize(48, -1));
+        lon ->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_light(m_selected_printer_id, true);  });
+        loff->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_light(m_selected_printer_id, false); });
+        lamprow->Add(lon, 0, wxRIGHT, 4);
+        lamprow->Add(loff, 0);
+        right->Add(lamprow, 0, wxBOTTOM, 8);
+
+        auto* speedrow = new wxBoxSizer(wxHORIZONTAL);
+        speedrow->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Speed")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+        struct SP { const char* lbl; int pct; };
+        for (const SP& s : { SP{"Silent", 50}, SP{"Normal", 100}, SP{"Sport", 125}, SP{"Max", 166} }) {
+            auto* b = new wxButton(m_motion_panel, wxID_ANY, s.lbl, wxDefaultPosition, wxSize(60, -1));
+            int pct = s.pct;
+            b->Bind(wxEVT_BUTTON, [this, pct](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_speed(m_selected_printer_id, pct); });
+            speedrow->Add(b, 0, wxRIGHT, 4);
+        }
+        right->Add(speedrow, 0);
+
+        cols->Add(right, 0);
+        outer->Add(cols, 0);
+        m_motion_panel->SetSizer(outer);
     }
     m_motion_panel->Hide();
     detail->Add(m_motion_panel, 0, wxTOP, 10);

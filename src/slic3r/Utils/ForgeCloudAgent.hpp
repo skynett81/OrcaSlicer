@@ -97,6 +97,13 @@ public:
     bool control_extrude(const std::string& printer_id, double amount_mm);
     bool control_tool(const std::string& printer_id, int tool_index);
 
+    // Fan / chamber-light / print-speed (Bambu via MQTT, Klipper/Moonraker via
+    // gcode). control_speed takes a percentage (10-300); for Bambu it is mapped
+    // to the nearest preset level (1-4). All POST /api/printers/{id}/control.
+    bool control_fan(const std::string& printer_id, int percent);
+    bool control_light(const std::string& printer_id, bool on);
+    bool control_speed(const std::string& printer_id, int percent);
+
     // Returns time of last successful API call — UI uses this to show
     // freshness in the fleet panel ("synced 12s ago").
     std::chrono::steady_clock::time_point last_synced() const { return m_last_synced; }
