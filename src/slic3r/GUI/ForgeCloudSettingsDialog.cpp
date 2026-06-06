@@ -54,7 +54,8 @@ void ForgeCloudSettingsDialog::build_ui()
     root->Add(m_providers, 1, wxEXPAND | wxALL, 16);
 
     auto* note = new wxStaticText(this, wxID_ANY,
-        _L("OctoEverywhere, Obico, SimplyPrint, Prusa Connect and Bambu Cloud arrive in a later phase."));
+        _L("Printers connected to your 3DPrintForge dashboard are reached through it "
+           "(Bambu, Prusa, OctoPrint, Klipper/Moonraker and more) — no separate cloud accounts needed."));
     root->Add(note, 0, wxLEFT | wxRIGHT | wxBOTTOM, 16);
 
     auto* btns = new wxBoxSizer(wxHORIZONTAL);
