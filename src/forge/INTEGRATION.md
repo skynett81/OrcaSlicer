@@ -3,7 +3,7 @@
 ## Step 1 — CLI flag
 
 Find your fork's argument parser (usually `src/Slic3r.cpp` or
-`src/OrcaSlicer.cpp`). Add a `--rest-port` option:
+`src/ForgeSlicer.cpp`). Add a `--rest-port` option:
 
 ```cpp
 { 'p', "rest-port", "Start a REST service on the given port (e.g. 8765)" },
@@ -52,7 +52,7 @@ entry point depends on whether headless mode has access to the GUI's
 
 Replace the `// auto& bundle = ...` block in `list_profiles()` with
 the real iteration. Convert each `Slic3r::Preset::config` into a JSON
-blob via `serialize_json()` (already exists in OrcaSlicer's
+blob via `serialize_json()` (already exists in the slicer's
 DynamicPrintConfig).
 
 ## Step 4 — Implement `/api/slice`

@@ -100,7 +100,7 @@ cd ..
 cmake -B build -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_PREFIX_PATH="$PWD/deps/build/destdir/usr/local" \
   -DENABLE_FORGE_REST=ON
-cmake --build build --target OrcaSlicer
+cmake --build build --target ForgeSlicer
 
 # Binary lives at build/src/3dprintforge-slicer
 ```

@@ -130,9 +130,9 @@ enum ConfigMenuIDs {
     ConfigMenuCnt,
 };
 
-enum OrcaSlicerMenuIDs {
-  OrcaSlicerMenuAbout,
-  OrcaSlicerMenuPreferences,
+enum ForgeSlicerMenuIDs {
+  ForgeSlicerMenuAbout,
+  ForgeSlicerMenuPreferences,
 };
 
 enum CameraMenuIDs {

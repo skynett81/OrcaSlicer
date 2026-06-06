@@ -59,7 +59,7 @@ if (APPLE)
     message(STATUS "CMAKE_OSX_DEPLOYMENT_TARGET: ${CMAKE_OSX_DEPLOYMENT_TARGET}")
 endif ()
 
-project(OrcaSlicer)
+project(ForgeSlicer)
 
 # Backward compatibility for old CMake versions
 if (CMAKE_SYSTEM_NAME STREQUAL "Linux" AND CMAKE_VERSION VERSION_LESS "3.25")
@@ -117,10 +117,10 @@ else()
     set(SLIC3R_STATIC_INITIAL 1)
 endif()
 
-option(SLIC3R_STATIC            "Compile OrcaSlicer with static libraries (Boost, TBB)" ${SLIC3R_STATIC_INITIAL})
-option(SLIC3R_GUI               "Compile OrcaSlicer with GUI components (OpenGL, wxWidgets)" 1)
-option(SLIC3R_FHS               "Assume OrcaSlicer is to be installed in a FHS directory structure" 0)
-option(SLIC3R_PROFILE           "Compile OrcaSlicer with an invasive Shiny profiler" 0)
+option(SLIC3R_STATIC            "Compile 3DPrintForge Slicer with static libraries (Boost, TBB)" ${SLIC3R_STATIC_INITIAL})
+option(SLIC3R_GUI               "Compile 3DPrintForge Slicer with GUI components (OpenGL, wxWidgets)" 1)
+option(SLIC3R_FHS               "Assume 3DPrintForge Slicer is to be installed in a FHS directory structure" 0)
+option(SLIC3R_PROFILE           "Compile 3DPrintForge Slicer with an invasive Shiny profiler" 0)
 option(SLIC3R_PCH               "Use precompiled headers" 1)
 option(SLIC3R_MSVC_COMPILE_PARALLEL "Compile on Visual Studio in parallel" 1)
 option(SLIC3R_MSVC_PDB          "Generate PDB files on MSVC in Release mode" 1)
@@ -146,7 +146,7 @@ endif ()
 if (APPLE)
     list(LENGTH CMAKE_OSX_ARCHITECTURES _arch_len)
     if (_arch_len GREATER 1)
-        message(FATAL_ERROR "OrcaSlicer only supports building for one architecture at a time. Please make sure only one architecture is specified in CMAKE_OSX_ARCHITECTURES")
+        message(FATAL_ERROR "3DPrintForge Slicer only supports building for one architecture at a time. Please make sure only one architecture is specified in CMAKE_OSX_ARCHITECTURES")
     endif ()
     set(CMAKE_FIND_FRAMEWORK LAST)
     set(CMAKE_FIND_APPBUNDLE LAST)
@@ -168,7 +168,7 @@ option(BUILD_TESTS       "Build unit tests" OFF)
 option(ORCA_TOOLS       "Build Orca tools" OFF)
 
 # forge-slicer REST service (skynett81 fork). When ON the embedded
-# cpp-httplib server in src/forge is built and linked into OrcaSlicer,
+# cpp-httplib server in src/forge is built and linked into 3DPrintForge Slicer,
 # exposed at runtime via --rest_port. Default OFF so upstream behavior
 # is untouched.
 option(ENABLE_FORGE_REST "Build the forge-slicer REST service" OFF)
@@ -248,7 +248,7 @@ if (MINGW)
 endif ()
 
 if (NOT MSVC)
-    # ARMs (Raspberry PI) use an unsigned char by default. Let's make it consistent for OrcaSlicer on all platforms.
+    # ARMs (Raspberry PI) use an unsigned char by default. Let's make it consistent for 3DPrintForge Slicer on all platforms.
     add_compile_options(-fsigned-char)
 endif ()
 
@@ -525,7 +525,7 @@ add_definitions(-DwxUSE_UNICODE -D_UNICODE -DUNICODE -DWXINTL_NO_GETTEXT_MACRO)
 add_definitions(-DwxNO_UNSAFE_WXSTRING_CONV)
 
 if (SLIC3R_PROFILE)
-    message("OrcaSlicer will be built with a Shiny invasive profiler")
+    message("3DPrintForge Slicer will be built with a Shiny invasive profiler")
     add_definitions(-DSLIC3R_PROFILE)
 endif ()
 
@@ -878,10 +878,10 @@ function(orcaslicer_copy_dlls target config postfix output_dlls)
 endfunction()
 
 
-# libslic3r, OrcaSlicer GUI and the OrcaSlicer executable.
+# libslic3r, ForgeSlicer GUI and the ForgeSlicer executable.
 add_subdirectory(deps_src)
 add_subdirectory(src)
-set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT OrcaSlicer_app_gui)
+set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ForgeSlicer_app_gui)
 
 add_dependencies(gettext_make_pot hintsToPot)
 

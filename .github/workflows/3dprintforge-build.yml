@@ -93,7 +93,7 @@ jobs:
             -DENABLE_FORGE_REST=ON
 
       - name: Build 3DPrintForge Slicer
-        run: cmake --build build --target OrcaSlicer -- -j $(nproc)
+        run: cmake --build build --target ForgeSlicer -- -j $(nproc)
 
       - name: Smoke-test the binary
         run: |

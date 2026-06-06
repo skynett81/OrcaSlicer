@@ -1,6 +1,6 @@
-# forge-slicer — REST service for OrcaSlicer
+# forge-slicer — REST service for 3DPrintForge Slicer
 
-Embedded HTTP server that exposes OrcaSlicer's profile manager and
+Embedded HTTP server that exposes 3DPrintForge Slicer's profile manager and
 slicing pipeline over REST. Designed to be driven by
 [3DPrintForge](https://github.com/skynett81/3dprintforge) so the
 dashboard can slice and submit jobs without spawning the CLI per
@@ -42,7 +42,7 @@ overridden via the `FORGE_DASHBOARD_URL` environment variable.
 
 ## PresetBundle injection
 
-`list_profiles()` and `find_profile()` iterate the real OrcaSlicer
+`list_profiles()` and `find_profile()` iterate the real 3DPrintForge Slicer
 `PresetBundle`, but the host (GUI or headless CLI) is responsible for
 handing it over via `forge_slicer::set_preset_bundle()`.
 
@@ -78,10 +78,10 @@ Headless mode (REST only, no GUI — what 3DPrintForge will use):
 
 In `--rest-only` mode the binary skips GUI startup entirely, constructs
 a `PresetBundle` directly from `data_dir()` (defaulting to
-`$XDG_CONFIG_HOME/OrcaSlicer` or `$HOME/.config/OrcaSlicer`), and blocks
+`$XDG_CONFIG_HOME/3DPrintForgeSlicer` or `$HOME/.config/3DPrintForgeSlicer`), and blocks
 on a signal so the REST thread keeps serving.
 
-Note: OrcaSlicer's CLI parser maps the underscore-form keys
+Note: 3DPrintForge Slicer's CLI parser maps the underscore-form keys
 (`rest_port`) registered in PrintConfig.cpp to dash-form flags on
 the command line. Both `--rest-port` and `--rest_port` are *not*
 accepted — only the dash form works.
@@ -110,7 +110,7 @@ $ 3dprintforge-slicer --rest-port 8765 --rest-only
 
 - `rest_server.cpp` — cpp-httplib server, endpoint handlers
 - `CMakeLists.txt` — FetchContent for cpp-httplib, static lib target
-- `INTEGRATION.md` — step-by-step wiring into `src/OrcaSlicer.cpp`
+- `INTEGRATION.md` — step-by-step wiring into `src/ForgeSlicer.cpp`
 
 ## Contract
 
