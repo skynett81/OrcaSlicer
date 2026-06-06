@@ -67,12 +67,12 @@ cmake --build build --target forge_slicer_rest
 
 GUI mode (alongside the slicer):
 ```bash
-orca-slicer --rest-port 8765 --rest-bind 127.0.0.1
+3dprintforge-slicer --rest-port 8765 --rest-bind 127.0.0.1
 ```
 
 Headless mode (REST only, no GUI — what 3DPrintForge will use):
 ```bash
-orca-slicer --rest-port 8765 --rest-only
+3dprintforge-slicer --rest-port 8765 --rest-only
 # Sends SIGINT (Ctrl-C) or SIGTERM to stop.
 ```
 
@@ -91,7 +91,7 @@ accepted — only the dash form works.
 End-to-end verified on 2026-06-05 (headless mode):
 
 ```bash
-$ orca-slicer --rest-port 8765 --rest-only
+$ 3dprintforge-slicer --rest-port 8765 --rest-only
 [forge-slicer] REST service listening on 127.0.0.1:8765
 [forge-slicer] PresetBundle injected: 12 printers, 294 filaments, 34 processes
 ```
