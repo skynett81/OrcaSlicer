@@ -5,6 +5,7 @@
 
 class wxButton;
 class wxStaticText;
+class wxTextCtrl;
 
 namespace Slic3r { namespace GUI {
 
@@ -21,6 +22,7 @@ public:
 
 private:
     wxListBox*    m_list = nullptr;
+    wxTextCtrl*   m_params = nullptr;
     wxButton*     m_btn_open = nullptr;
     wxButton*     m_btn_generate = nullptr;
     wxStaticText* m_hint = nullptr;

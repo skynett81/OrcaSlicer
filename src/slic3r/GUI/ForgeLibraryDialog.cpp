@@ -1,4 +1,5 @@
 #include "ForgeLibraryDialog.hpp"
+#include "ForgeCloud.hpp"
 #include "I18N.hpp"
 #include "GUI_App.hpp"
 #include "Plater.hpp"
@@ -12,9 +13,11 @@
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/stdpaths.h>
+#include <wx/textctrl.h>
 #include <wx/utils.h>
 
 #include <chrono>
+#include <fstream>
 
 namespace Slic3r { namespace GUI {
 
@@ -23,8 +26,8 @@ namespace {
 // running the dashboard on a non-default port can still launch the
 // right page from the slicer.
 std::string dashboard_url() {
-    if (const char* env = std::getenv("FORGE_DASHBOARD_URL"); env && *env) return env;
-    return "https://localhost:3443";
+    // Unified with the Cloud & Remote Settings dialog (AppConfig-backed).
+    return forge_dashboard_url();
 }
 
 // First-iteration static catalog. Mirrors server/generators/ in
@@ -109,9 +112,9 @@ ForgeLibraryDialog::ForgeLibraryDialog(wxWindow* parent)
     root->Add(title, 0, wxALL, 12);
 
     m_hint = new wxStaticText(this, wxID_ANY,
-        _L("Pick a generator and open it in the 3DPrintForge dashboard. "
-           "A future build will run generation directly inside the slicer "
-           "and drop the result onto the active plate."));
+        _L("Pick a generator and click Generate — the result is added to the "
+           "active plate. Leave Parameters empty to use the generator's "
+           "defaults, or supply a JSON object to customise it."));
     m_hint->Wrap(520);
     root->Add(m_hint, 0, wxLEFT | wxRIGHT | wxBOTTOM, 12);
 
@@ -123,8 +126,15 @@ ForgeLibraryDialog::ForgeLibraryDialog(wxWindow* parent)
     if (!items.IsEmpty()) m_list->SetSelection(0);
     root->Add(m_list, 1, wxEXPAND | wxLEFT | wxRIGHT, 12);
 
+    auto* params_label = new wxStaticText(this, wxID_ANY,
+        _L("Parameters (optional JSON, e.g. {\"width\": 120}):"));
+    root->Add(params_label, 0, wxLEFT | wxRIGHT | wxTOP, 12);
+    m_params = new wxTextCtrl(this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                              wxSize(-1, 80), wxTE_MULTILINE);
+    root->Add(m_params, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, 12);
+
     auto* buttons = new wxBoxSizer(wxHORIZONTAL);
-    m_btn_generate = new wxButton(this, wxID_ANY, _L("Generate with defaults"));
+    m_btn_generate = new wxButton(this, wxID_ANY, _L("Generate"));
     m_btn_open = new wxButton(this, wxID_OPEN, _L("Open in 3DPrintForge"));
     auto* close = new wxButton(this, wxID_CLOSE, _L("Close"));
     buttons->Add(m_btn_generate, 0, wxRIGHT, 8);
@@ -158,14 +168,27 @@ void ForgeLibraryDialog::on_generate_default(wxCommandEvent& /*evt*/)
 
     const wxString url = wxString::Format(
         "%s/api/model-forge/%s/generate-3mf", dashboard_url(), g.id);
-    // curl is bridged via wxExecute so we don't pull in OpenSSL just to
-    // call our own dashboard. Phase 3 will replace this with cpp-httplib
-    // + OpenSSL once we wire that into the build. Empty JSON body uses
-    // each generator's documented defaults.
+
+    // Write the parameter body to a temp file so arbitrary user JSON
+    // (with quotes etc.) survives the shell. Empty input falls back to
+    // "{}" — each generator's documented defaults.
+    std::string params = m_params ? m_params->GetValue().ToStdString() : std::string();
+    if (size_t a = params.find_first_not_of(" \t\r\n"); a == std::string::npos)
+        params.clear();
+    else
+        params = params.substr(a, params.find_last_not_of(" \t\r\n") - a + 1);
+    if (params.empty()) params = "{}";
+    wxFileName pfn(wxStandardPaths::Get().GetTempDir(),
+                   wxString::Format("forge-params-%lld.json", static_cast<long long>(ts)));
+    const wxString param_path = pfn.GetFullPath();
+    { std::ofstream pf(param_path.ToStdString(), std::ios::binary); pf << params; }
+
+    // curl is bridged via wxExecute so we don't pull OpenSSL into the GUI
+    // just to call our own dashboard (Phase 3 swaps this for cpp-httplib).
     wxString cmd = wxString::Format(
-        "curl -ks -X POST %s -H \"Content-Type: application/json\" "
-        "-d \"{}\" --max-time 60 -o %s",
-        url, out_path);
+        "curl -ks -X POST \"%s\" -H \"Content-Type: application/json\" "
+        "-d @\"%s\" --max-time 60 -o \"%s\"",
+        url, param_path, out_path);
 
     {
         wxBusyCursor wait;
