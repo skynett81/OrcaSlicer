@@ -17,6 +17,8 @@ class wxListEvent;
 
 namespace Slic3r { namespace GUI {
 
+class ForgeControlPanel;
+
 // Multi-brand fleet panel — replaces (or sits alongside) OrcaSlicer's
 // Bambu-only Device tab. Reads the printer roster from the user's
 // 3DPrintForge Server and lets them queue prints, refresh status,
@@ -61,7 +63,7 @@ private:
     wxButton*     m_btn_pause       = nullptr;
     wxButton*     m_btn_resume      = nullptr;
     wxButton*     m_btn_stop        = nullptr;
-    wxPanel*      m_motion_panel    = nullptr;  // jog/extrude/home/tools (Klipper/Moonraker)
+    ForgeControlPanel* m_control    = nullptr;  // native Control widgets (Klipper/Moonraker)
     wxPanel*      m_filament_row    = nullptr;  // filament slots (multi-tool printers)
     wxPanel*      m_slot[4]         = { nullptr, nullptr, nullptr, nullptr }; // color swatch per tool
     wxStaticText* m_slot_lbl[4]     = { nullptr, nullptr, nullptr, nullptr }; // T#/material per tool

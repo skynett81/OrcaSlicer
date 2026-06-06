@@ -349,4 +349,18 @@ bool ForgeCloudAgent::control_speed(const std::string& printer_id, int percent)
     return res && res->status < 400;
 }
 
+bool ForgeCloudAgent::control_set_temp(const std::string& printer_id, const std::string& heater,
+                                       int temp, int tool)
+{
+    temp = std::max(0, std::min(350, temp));
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "set_temp" }, { "temp", temp } };
+    if (heater == "bed") body["heater"] = "bed";
+    if (tool >= 0)       body["tool"]   = tool;
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
 } // namespace Slic3r

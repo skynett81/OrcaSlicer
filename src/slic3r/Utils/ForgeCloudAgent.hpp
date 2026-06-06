@@ -104,6 +104,11 @@ public:
     bool control_light(const std::string& printer_id, bool on);
     bool control_speed(const std::string& printer_id, int percent);
 
+    // Set a target temperature. heater = "bed" or "nozzle"; tool < 0 means the
+    // single/active nozzle (no tool index sent). Klipper/Moonraker only.
+    bool control_set_temp(const std::string& printer_id, const std::string& heater,
+                          int temp, int tool = -1);
+
     // Returns time of last successful API call — UI uses this to show
     // freshness in the fleet panel ("synced 12s ago").
     std::chrono::steady_clock::time_point last_synced() const { return m_last_synced; }

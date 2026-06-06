@@ -32,6 +32,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/ForgeOnboardingDialog.hpp
     GUI/ForgeFleetPanel.cpp
     GUI/ForgeFleetPanel.hpp
+    GUI/ForgeControlPanel.cpp
+    GUI/ForgeControlPanel.hpp
     GUI/AmsMappingPopup.cpp
     GUI/AmsMappingPopup.hpp
     GUI/AMSMaterialsSetting.cpp

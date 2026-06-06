@@ -1,4 +1,5 @@
 #include "ForgeFleetPanel.hpp"
+#include "ForgeControlPanel.hpp"
 #include "I18N.hpp"
 #include "GUI_App.hpp"
 
@@ -13,12 +14,6 @@
 #include <wx/statbmp.h>
 #include <wx/mstream.h>
 #include <wx/image.h>
-#include <wx/gbsizer.h>
-#include <wx/graphics.h>
-#include <wx/dcbuffer.h>
-
-#include <cmath>
-#include <functional>
 
 namespace Slic3r { namespace GUI {
 
@@ -29,145 +24,6 @@ constexpr int COL_VENDOR   = 1;
 constexpr int COL_HOST     = 2;
 constexpr int COL_STATUS   = 3;
 constexpr int COL_PROGRESS = 4;
-
-constexpr double kPi = 3.14159265358979323846;
-
-// Brand accent (3DPrintForge teal) and dial palette.
-const wxColour kAccent (0x00, 0x97, 0x89);
-const wxColour kAccentDk(0x00, 0x66, 0x5b);
-const wxColour kDialBase(0x3a, 0x3f, 0x44);
-const wxColour kDialEdge(0x55, 0x5b, 0x61);
-const wxColour kDialText(0xe6, 0xe6, 0xe6);
-
-// Owner-drawn circular X/Y jog dial — mirrors the Bambu Device "Control"
-// dial: Y at top, -Y bottom, X right, -X left, Home in the centre. Clicking
-// a sector jogs that axis; the centre homes. Hovering highlights the sector.
-class ForgeJogDial : public wxPanel
-{
-public:
-    ForgeJogDial(wxWindow* parent,
-                 std::function<void(const std::string&, double)> move_cb,
-                 std::function<void()> home_cb,
-                 double step_mm = 10.0)
-        : wxPanel(parent, wxID_ANY, wxDefaultPosition, wxSize(168, 168))
-        , m_move(std::move(move_cb)), m_home(std::move(home_cb)), m_step(step_mm)
-    {
-        SetBackgroundStyle(wxBG_STYLE_PAINT);
-        Bind(wxEVT_PAINT,        &ForgeJogDial::on_paint,  this);
-        Bind(wxEVT_LEFT_DOWN,    &ForgeJogDial::on_click,  this);
-        Bind(wxEVT_MOTION,       &ForgeJogDial::on_motion, this);
-        Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent&) { if (m_hover != N) { m_hover = N; Refresh(); } });
-        SetCursor(wxCursor(wxCURSOR_HAND));
-    }
-
-private:
-    enum Sector { N = -1, UP, RIGHT, DOWN, LEFT, HOME };
-    std::function<void(const std::string&, double)> m_move;
-    std::function<void()> m_home;
-    double m_step;
-    int    m_hover = N;
-
-    void geom(double& cx, double& cy, double& outer, double& inner) const
-    {
-        wxSize sz = GetClientSize();
-        cx = sz.x / 2.0; cy = sz.y / 2.0;
-        outer = std::min(cx, cy) - 3.0;
-        inner = outer * 0.36;
-    }
-
-    int hit(const wxPoint& p) const
-    {
-        double cx, cy, outer, inner; geom(cx, cy, outer, inner);
-        double dx = p.x - cx, dy = p.y - cy;
-        double r = std::sqrt(dx * dx + dy * dy);
-        if (r <= inner) return HOME;
-        if (r > outer)  return N;
-        double deg = std::atan2(dy, dx) * 180.0 / kPi; // 0 = right, +down
-        if (deg >= -45 && deg < 45)   return RIGHT;
-        if (deg >= 45 && deg < 135)   return DOWN;
-        if (deg >= -135 && deg < -45) return UP;
-        return LEFT;
-    }
-
-    void on_motion(wxMouseEvent& e) { int h = hit(e.GetPosition()); if (h != m_hover) { m_hover = h; Refresh(); } }
-
-    void on_click(wxMouseEvent& e)
-    {
-        switch (hit(e.GetPosition())) {
-            case UP:    if (m_move) m_move("Y",  m_step); break;
-            case DOWN:  if (m_move) m_move("Y", -m_step); break;
-            case RIGHT: if (m_move) m_move("X",  m_step); break;
-            case LEFT:  if (m_move) m_move("X", -m_step); break;
-            case HOME:  if (m_home) m_home();             break;
-            default: break;
-        }
-    }
-
-    void wedge(wxGraphicsContext* gc, double cx, double cy, double outer,
-               double a0, double a1, const wxColour& fill) const
-    {
-        wxGraphicsPath path = gc->CreatePath();
-        path.MoveToPoint(cx, cy);
-        path.AddArc(cx, cy, outer, a0, a1, true);
-        path.CloseSubpath();
-        gc->SetBrush(wxBrush(fill));
-        gc->SetPen(*wxTRANSPARENT_PEN);
-        gc->FillPath(path);
-    }
-
-    void on_paint(wxPaintEvent&)
-    {
-        wxAutoBufferedPaintDC dc(this);
-        dc.SetBackground(wxBrush(GetParent()->GetBackgroundColour()));
-        dc.Clear();
-        wxGraphicsContext* gc = wxGraphicsContext::Create(dc);
-        if (!gc) return;
-
-        double cx, cy, outer, inner; geom(cx, cy, outer, inner);
-
-        // Base disc.
-        gc->SetBrush(wxBrush(kDialBase));
-        gc->SetPen(wxPen(kDialEdge, 1));
-        gc->DrawEllipse(cx - outer, cy - outer, outer * 2, outer * 2);
-
-        // Hover highlight on the active sector.
-        const double q = kPi / 4.0;
-        if (m_hover == RIGHT) wedge(gc, cx, cy, outer, -q, q, kAccentDk);
-        else if (m_hover == DOWN)  wedge(gc, cx, cy, outer, q, 3 * q, kAccentDk);
-        else if (m_hover == LEFT)  wedge(gc, cx, cy, outer, 3 * q, 5 * q, kAccentDk);
-        else if (m_hover == UP)    wedge(gc, cx, cy, outer, -3 * q, -q, kAccentDk);
-
-        // Divider lines between sectors.
-        gc->SetPen(wxPen(kDialEdge, 1));
-        for (double a = q; a < 2 * kPi; a += 2 * q) {
-            wxGraphicsPath ln = gc->CreatePath();
-            ln.MoveToPoint(cx + inner * std::cos(a), cy + inner * std::sin(a));
-            ln.AddLineToPoint(cx + outer * std::cos(a), cy + outer * std::sin(a));
-            gc->StrokePath(ln);
-        }
-
-        // Centre Home button.
-        gc->SetBrush(wxBrush(m_hover == HOME ? kAccent : kDialEdge));
-        gc->SetPen(wxPen(kDialEdge, 1));
-        gc->DrawEllipse(cx - inner, cy - inner, inner * 2, inner * 2);
-
-        // Labels.
-        gc->SetFont(GetFont(), kDialText);
-        double mid = (inner + outer) / 2.0;
-        auto label = [&](const wxString& s, double x, double y) {
-            double tw, th, dd, ee; gc->GetTextExtent(s, &tw, &th, &dd, &ee);
-            gc->DrawText(s, x - tw / 2, y - th / 2);
-        };
-        label("Y",  cx,        cy - mid);
-        label("-Y", cx,        cy + mid);
-        label("X",  cx + mid,  cy);
-        label("-X", cx - mid,  cy);
-        gc->SetFont(GetFont(), m_hover == HOME ? *wxWHITE : kDialText);
-        label(_L("Home"), cx, cy);
-
-        delete gc;
-    }
-};
 } // namespace
 
 ForgeFleetPanel::ForgeFleetPanel(wxWindow* parent)
@@ -294,113 +150,25 @@ void ForgeFleetPanel::build_ui()
     ctrl_row->Add(m_btn_stop,   0);
     detail->Add(ctrl_row, 0, wxTOP, 8);
 
-    // Control panel — shown only for Klipper/Moonraker printers (jog/extrude/
-    // home/tool + fan/lamp/speed route to gcode via the dashboard). Laid out
-    // to mirror the Bambu Device "Control" tab: a tool/jog/extruder column on
-    // the left, fan/lamp/speed on the right.
-    m_motion_panel = new wxPanel(this, wxID_ANY);
-    {
-        auto* outer = new wxBoxSizer(wxVERTICAL);
-        outer->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Control")), 0, wxBOTTOM, 6);
+    // Control panel — the REAL native Bambu Device "Control" widgets (temp
+    // column, AxisCtrlButton dial, bed Z, extruder, fan/lamp/speed), reused
+    // for every brand and wired to the dashboard. Shown only for Klipper/
+    // Moonraker printers (gcode control); Bambu keeps its own monitor tab.
+    ForgeControlPanel::Callbacks cb;
+    cb.move    = [this](const std::string& ax, double d) { if (!m_selected_printer_id.empty()) m_agent->control_move(m_selected_printer_id, ax, d); };
+    cb.home    = [this]()                                 { if (!m_selected_printer_id.empty()) m_agent->control_home(m_selected_printer_id); };
+    cb.extrude = [this](double amt)                       { if (!m_selected_printer_id.empty()) m_agent->control_extrude(m_selected_printer_id, amt); };
+    cb.set_temp= [this](const std::string& h, int t, int tool) { if (!m_selected_printer_id.empty()) m_agent->control_set_temp(m_selected_printer_id, h, t, tool); };
+    cb.fan     = [this](int pct)                          { if (!m_selected_printer_id.empty()) m_agent->control_fan(m_selected_printer_id, pct); };
+    cb.light   = [this](bool on)                          { if (!m_selected_printer_id.empty()) m_agent->control_light(m_selected_printer_id, on); };
+    cb.speed   = [this](int pct)                          { if (!m_selected_printer_id.empty()) m_agent->control_speed(m_selected_printer_id, pct); };
+    cb.select_tool = [this](int tool)                     { if (!m_selected_printer_id.empty()) m_agent->control_tool(m_selected_printer_id, tool); };
 
-        auto* cols = new wxBoxSizer(wxHORIZONTAL);
-
-        // ---- Left column: tools, jog cross + Z (Bed), extruder ----
-        auto* left = new wxBoxSizer(wxVERTICAL);
-
-        auto* tools = new wxBoxSizer(wxHORIZONTAL);
-        tools->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Tools:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
-        for (int t = 0; t < 4; ++t) {
-            auto* b = new wxButton(m_motion_panel, wxID_ANY, wxString::Format("T%d", t + 1), wxDefaultPosition, wxSize(40, -1));
-            b->Bind(wxEVT_BUTTON, [this, t](wxCommandEvent&) {
-                if (!m_selected_printer_id.empty()) m_agent->control_tool(m_selected_printer_id, t);
-            });
-            tools->Add(b, 0, wxRIGHT, 4);
-        }
-        left->Add(tools, 0, wxBOTTOM, 8);
-
-        // Circular X/Y jog dial (Home centre) beside a vertical Z (Bed) column,
-        // exactly like the Bambu Device "Control" dial.
-        auto* dialrow = new wxBoxSizer(wxHORIZONTAL);
-        auto* dial = new ForgeJogDial(m_motion_panel,
-            [this](const std::string& ax, double d) {
-                if (!m_selected_printer_id.empty()) m_agent->control_move(m_selected_printer_id, ax, d);
-            },
-            [this]() {
-                if (!m_selected_printer_id.empty()) m_agent->control_home(m_selected_printer_id);
-            });
-        dialrow->Add(dial, 0, wxRIGHT, 14);
-
-        auto mkz = [&](const char* lbl, double d) {
-            auto* b = new wxButton(m_motion_panel, wxID_ANY, lbl, wxDefaultPosition, wxSize(52, 30));
-            b->Bind(wxEVT_BUTTON, [this, d](wxCommandEvent&) {
-                if (!m_selected_printer_id.empty()) m_agent->control_move(m_selected_printer_id, "Z", d);
-            });
-            return b;
-        };
-        auto* zcol = new wxBoxSizer(wxVERTICAL);
-        zcol->Add(mkz("Z +10", 10), 0, wxBOTTOM, 3);
-        zcol->Add(mkz("Z +1",   1), 0, wxBOTTOM, 6);
-        zcol->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Bed")), 0, wxALIGN_CENTER | wxBOTTOM, 6);
-        zcol->Add(mkz("Z -1",  -1), 0, wxBOTTOM, 3);
-        zcol->Add(mkz("Z -10", -10), 0);
-        dialrow->Add(zcol, 0, wxALIGN_CENTER_VERTICAL);
-        left->Add(dialrow, 0, wxBOTTOM, 8);
-
-        auto* erow = new wxBoxSizer(wxHORIZONTAL);
-        auto* ext = new wxButton(m_motion_panel, wxID_ANY, _L("Extrude"));
-        auto* ret = new wxButton(m_motion_panel, wxID_ANY, _L("Retract"));
-        ext->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_extrude(m_selected_printer_id, 5);  });
-        ret->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_extrude(m_selected_printer_id, -5); });
-        erow->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Extruder:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 6);
-        erow->Add(ext, 0, wxRIGHT, 4);
-        erow->Add(ret, 0);
-        left->Add(erow, 0);
-
-        cols->Add(left, 0, wxRIGHT, 28);
-
-        // ---- Right column: fan, lamp, speed (as on the reference) ----
-        auto* right = new wxBoxSizer(wxVERTICAL);
-
-        auto* fanrow = new wxBoxSizer(wxHORIZONTAL);
-        fanrow->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Fan")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
-        for (int pct : { 0, 50, 100 }) {
-            wxString lbl = (pct == 0) ? _L("Off") : wxString::Format("%d%%", pct);
-            auto* b = new wxButton(m_motion_panel, wxID_ANY, lbl, wxDefaultPosition, wxSize(48, -1));
-            b->Bind(wxEVT_BUTTON, [this, pct](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_fan(m_selected_printer_id, pct); });
-            fanrow->Add(b, 0, wxRIGHT, 4);
-        }
-        right->Add(fanrow, 0, wxBOTTOM, 8);
-
-        auto* lamprow = new wxBoxSizer(wxHORIZONTAL);
-        lamprow->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Lamp")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
-        auto* lon  = new wxButton(m_motion_panel, wxID_ANY, _L("On"),  wxDefaultPosition, wxSize(48, -1));
-        auto* loff = new wxButton(m_motion_panel, wxID_ANY, _L("Off"), wxDefaultPosition, wxSize(48, -1));
-        lon ->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_light(m_selected_printer_id, true);  });
-        loff->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_light(m_selected_printer_id, false); });
-        lamprow->Add(lon, 0, wxRIGHT, 4);
-        lamprow->Add(loff, 0);
-        right->Add(lamprow, 0, wxBOTTOM, 8);
-
-        auto* speedrow = new wxBoxSizer(wxHORIZONTAL);
-        speedrow->Add(new wxStaticText(m_motion_panel, wxID_ANY, _L("Speed")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
-        struct SP { const char* lbl; int pct; };
-        for (const SP& s : { SP{"Silent", 50}, SP{"Normal", 100}, SP{"Sport", 125}, SP{"Max", 166} }) {
-            auto* b = new wxButton(m_motion_panel, wxID_ANY, s.lbl, wxDefaultPosition, wxSize(60, -1));
-            int pct = s.pct;
-            b->Bind(wxEVT_BUTTON, [this, pct](wxCommandEvent&) { if (!m_selected_printer_id.empty()) m_agent->control_speed(m_selected_printer_id, pct); });
-            speedrow->Add(b, 0, wxRIGHT, 4);
-        }
-        right->Add(speedrow, 0);
-
-        cols->Add(right, 0);
-        outer->Add(cols, 0);
-        m_motion_panel->SetSizer(outer);
-    }
-    m_motion_panel->Hide();
+    m_control = new ForgeControlPanel(this, std::move(cb));
+    m_control->Hide();
 
     body->Add(detail, 1, wxEXPAND | wxRIGHT, 12);
-    body->Add(m_motion_panel, 0, wxEXPAND);
+    body->Add(m_control, 0, wxEXPAND);
 
     root->Add(body, 1, wxALL | wxEXPAND, 14);
 
@@ -459,8 +227,8 @@ void ForgeFleetPanel::update_detail()
 
     // Motion/tool controls only apply to gcode (Klipper/Moonraker) printers.
     const bool gcode_capable = (p->vendor == "moonraker" || p->vendor == "klipper");
-    if (m_motion_panel && m_motion_panel->IsShown() != gcode_capable) {
-        m_motion_panel->Show(gcode_capable);
+    if (m_control && m_control->IsShown() != gcode_capable) {
+        m_control->Show(gcode_capable);
         Layout();
     }
 
@@ -495,6 +263,9 @@ void ForgeFleetPanel::update_detail()
         if (!temps.empty()) info += "\n" + temps;
     }
     m_detail_label->SetLabel(info);
+
+    // Push live telemetry into the native Control widgets (temps, tools).
+    if (m_control && gcode_capable && ls.ok) m_control->update_state(ls);
 
     // Update the filament slots — color swatch + material per toolhead.
     // Shown only for multi-tool printers; the active tool's label is bold.
