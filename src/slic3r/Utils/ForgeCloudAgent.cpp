@@ -212,4 +212,33 @@ bool ForgeCloudAgent::control_printer(const std::string& printer_id, const std::
     return true;
 }
 
+ForgeLiveState ForgeCloudAgent::get_printer_state(const std::string& printer_id)
+{
+    ForgeLiveState ls;
+    auto cli = make_client(m_server_url);
+    auto res = cli->Get("/api/printers/" + printer_id + "/state",
+                        auth_headers(m_auth.session_token));
+    if (!res || res->status != 200) return ls;
+    try {
+        auto j = json::parse(res->body);
+        // Moonraker-class state is often nested under "print".
+        const json& root = (j.contains("print") && j["print"].is_object()) ? j["print"] : j;
+        auto num = [](const json& o, std::initializer_list<const char*> keys) -> double {
+            for (auto k : keys)
+                if (o.contains(k) && o[k].is_number()) return o[k].get<double>();
+            return -1;
+        };
+        double pct = num(root, {"mc_percent", "percent", "progress"});
+        if (pct < 0) pct = num(j, {"mc_percent", "percent", "progress"});
+        ls.progress_pct = (pct >= 0) ? static_cast<int>(pct) : -1;
+        ls.nozzle_temp  = num(root, {"nozzle_temper", "nozzle_temperature"});
+        ls.bed_temp     = num(root, {"bed_temper", "bed_temperature"});
+        ls.chamber_temp = num(root, {"chamber_temper", "chamber_temperature"});
+        for (const char* k : {"gcode_state", "state", "print_status"})
+            if (root.contains(k) && root[k].is_string()) { ls.state = root[k].get<std::string>(); break; }
+        ls.ok = true;
+    } catch (...) {}
+    return ls;
+}
+
 } // namespace Slic3r

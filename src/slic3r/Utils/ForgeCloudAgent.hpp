@@ -22,6 +22,16 @@ struct ForgePrinter {
     std::string error_message;
 };
 
+// Live runtime state for a printer (best-effort, fields are -1 when unknown).
+struct ForgeLiveState {
+    bool        ok = false;
+    int         progress_pct = -1;
+    double      nozzle_temp  = -1;
+    double      bed_temp     = -1;
+    double      chamber_temp = -1;
+    std::string state;
+};
+
 // Authentication / connection state to 3DPrintForge Server.
 struct ForgeAuthState {
     bool        signed_in = false;
@@ -65,6 +75,10 @@ public:
     // Sends a print-control action (pause|resume|stop) to a printer.
     // Endpoint: POST /api/printers/{id}/control. Returns true on success.
     bool control_printer(const std::string& printer_id, const std::string& action);
+
+    // Fetches live runtime state (temps/progress) for a printer.
+    // Endpoint: GET /api/printers/{id}/state.
+    ForgeLiveState get_printer_state(const std::string& printer_id);
 
     // Returns time of last successful API call — UI uses this to show
     // freshness in the fleet panel ("synced 12s ago").

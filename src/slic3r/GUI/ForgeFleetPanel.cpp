@@ -175,6 +175,17 @@ void ForgeFleetPanel::update_detail()
     if (!st.empty()) info += "\n" + _L("Status: ") + st;
     if (!p->current_job.empty()) info += "\n" + _L("Job: ") + wxString::FromUTF8(p->current_job);
     if (p->progress_pct > 0) info += wxString::Format("  (%d%%)", p->progress_pct);
+
+    // Live runtime telemetry (temps/progress) — best-effort, read-only.
+    ForgeLiveState ls = m_agent->get_printer_state(m_selected_printer_id);
+    if (ls.ok) {
+        if (ls.progress_pct >= 0) info += "\n" + _L("Progress: ") + wxString::Format("%d%%", ls.progress_pct);
+        wxString temps;
+        if (ls.nozzle_temp >= 0)  temps += wxString::Format(_L("Nozzle %.0f°C  "), ls.nozzle_temp);
+        if (ls.bed_temp >= 0)     temps += wxString::Format(_L("Bed %.0f°C  "), ls.bed_temp);
+        if (ls.chamber_temp >= 0) temps += wxString::Format(_L("Chamber %.0f°C"), ls.chamber_temp);
+        if (!temps.empty()) info += "\n" + temps;
+    }
     m_detail_label->SetLabel(info);
 
     // Pull a fresh camera frame (JPEG) and show it; gracefully blank if none.
