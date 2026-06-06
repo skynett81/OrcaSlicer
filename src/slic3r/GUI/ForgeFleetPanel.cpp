@@ -20,8 +20,7 @@ namespace Slic3r { namespace GUI {
 namespace {
 constexpr int POLL_INTERVAL_MS = 5000;
 constexpr int COL_NAME   = 0;
-constexpr int COL_VENDOR = 1;
-constexpr int COL_STATUS = 2;
+constexpr int COL_STATUS = 1;
 } // namespace
 
 ForgeFleetPanel::ForgeFleetPanel(wxWindow* parent)
@@ -78,10 +77,9 @@ void ForgeFleetPanel::build_ui()
 
     m_list = new wxListCtrl(this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
                             wxLC_REPORT | wxLC_SINGLE_SEL);
-    m_list->AppendColumn(_L("Printer"), wxLIST_FORMAT_LEFT, FromDIP(140));
-    m_list->AppendColumn(_L("Vendor"),  wxLIST_FORMAT_LEFT, FromDIP(90));
-    m_list->AppendColumn(_L("Status"),  wxLIST_FORMAT_LEFT, FromDIP(80));
-    m_list->SetMinSize(wxSize(FromDIP(320), FromDIP(420)));
+    m_list->AppendColumn(_L("Printer"), wxLIST_FORMAT_LEFT, FromDIP(110));
+    m_list->AppendColumn(_L("Status"),  wxLIST_FORMAT_LEFT, FromDIP(70));
+    m_list->SetMinSize(wxSize(FromDIP(190), FromDIP(420)));
     leftcol->Add(m_list, 1, wxEXPAND | wxTOP, FromDIP(2));
 
     m_status_label = new wxStaticText(this, wxID_ANY, _L("Not signed in."));
@@ -107,7 +105,7 @@ void ForgeFleetPanel::build_ui()
     auto* detail = new wxBoxSizer(wxVERTICAL);
     detail->Add(make_title(_L("Camera")), 0, wxEXPAND);
     m_camera = new wxStaticBitmap(this, wxID_ANY, wxBitmap());
-    m_camera->SetMinSize(wxSize(FromDIP(480), FromDIP(360)));
+    m_camera->SetMinSize(wxSize(FromDIP(240), FromDIP(320)));
     detail->Add(m_camera, 1, wxEXPAND | wxTOP, FromDIP(2));
     detail->Add(make_title(_L("Printing progress")), 0, wxEXPAND | wxTOP, FromDIP(8));
     m_detail_label = new wxStaticText(this, wxID_ANY, _L("Select a printer to see details."));
@@ -186,6 +184,7 @@ void ForgeFleetPanel::build_ui()
     root->Add(body, 1, wxALL | wxEXPAND, FromDIP(12));
 
     SetSizer(root);
+    if (getenv("FORGE_OPEN_DEVICES")) m_control->Show(true); // dev/QA aid: show Control without a selection
 
     m_btn_login    ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_login, this);
     m_btn_configure->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_configure, this);
@@ -405,7 +404,6 @@ void ForgeFleetPanel::refresh_printer_list()
     for (size_t i = 0; i < m_printers.size(); ++i) {
         const auto& p = m_printers[i];
         long row = m_list->InsertItem((long)i, wxString::FromUTF8(p.name));
-        m_list->SetItem(row, COL_VENDOR, wxString::FromUTF8(p.vendor));
         wxString status = p.status.empty() ? wxString::FromUTF8(p.state) : wxString::FromUTF8(p.status);
         if (p.progress_pct > 0) status += wxString::Format(" %d%%", p.progress_pct);
         m_list->SetItem(row, COL_STATUS, status);

@@ -1365,6 +1365,7 @@ void MainFrame::init_tabpanel() {
     m_forge_fleet = new ForgeFleetPanel(m_tabpanel);
     m_forge_fleet->SetBackgroundColour(*wxWHITE);
     m_tabpanel->AddPage(m_forge_fleet, _L("Devices"), std::string("tab_monitor_active"), std::string("tab_monitor_active"), false);
+    if (getenv("FORGE_OPEN_DEVICES")) this->CallAfter([this] { select_tab(m_forge_fleet); }); // dev/QA aid: open Devices for screenshots
 
     if (m_plater) {
         // load initial config
