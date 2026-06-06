@@ -913,8 +913,8 @@ elseif (SLIC3R_FHS)
     )
     install(FILES src/dev-utils/platform/unix/com.3dprintforge.Slicer.desktop DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/applications)
     foreach(SIZE 32 128 192)
-        install(FILES ${SLIC3R_RESOURCES_DIR}/images/OrcaSlicer_${SIZE}px.png
-            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${SIZE}x${SIZE}/apps RENAME OrcaSlicer.png
+        install(FILES ${SLIC3R_RESOURCES_DIR}/images/3DPrintForgeSlicer_${SIZE}px.png
+            DESTINATION ${CMAKE_INSTALL_DATAROOTDIR}/icons/hicolor/${SIZE}x${SIZE}/apps RENAME 3DPrintForgeSlicer.png
         )
     endforeach()
 elseif (CMAKE_MACOSX_BUNDLE)
@@ -936,7 +936,7 @@ set (CPACK_PACKAGE_FILE_NAME "3DPrintForgeSlicer_Windows_Installer_V${SoftFever_
 set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "3DPrintForge Slicer is an open source slicer for FDM printers")
 set (CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/skynett81/3dprintforge-slicer")
 set (CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
-set (CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/resources/images\\\\OrcaSlicer.ico")
+set (CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/resources/images\\\\3DPrintForgeSlicer.ico")
 set (CPACK_NSIS_MUI_ICON "${CPACK_PACKAGE_ICON}")
 set (CPACK_NSIS_MUI_UNIICON "${CPACK_PACKAGE_ICON}")
 set (CPACK_NSIS_INSTALLED_ICON_NAME  "$INSTDIR\\\\3dprintforge-slicer.exe")
