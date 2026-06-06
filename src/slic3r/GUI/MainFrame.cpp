@@ -13,6 +13,8 @@
 #include <wx/filename.h>
 #include <wx/debug.h>
 #include <wx/utils.h>
+#include <wx/stdpaths.h>
+#include <wx/datetime.h>
 
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/log/trivial.hpp>
@@ -41,6 +43,7 @@
 #include "../Utils/Process.hpp"
 #include "format.hpp"
 #include "ForgeLibraryDialog.hpp"
+#include "ForgeCloud.hpp"
 #include "ForgeOnboardingDialog.hpp"
 #include "ForgeFleetPanel.hpp"
 // BBS
@@ -2649,6 +2652,46 @@ static void add_common_view_menu_items(wxMenu* view_menu, MainFrame* mainFrame, 
         "", nullptr, [can_change_view]() { return can_change_view(); }, mainFrame);
 }
 
+void MainFrame::send_plate_to_3dprintforge()
+{
+    Plater* plater = wxGetApp().plater();
+    if (plater == nullptr || plater->model().objects.empty()) {
+        wxMessageBox(_L("Load a model before sending to 3DPrintForge."),
+                     _L("Send to 3DPrintForge"), wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+
+    // Export the current plate to a temp 3MF, then hand it to the cloud
+    // provider. The dashboard auto-slices the project if needed.
+    const wxString server_name = wxString::Format("forge-%s.3mf",
+                                                  wxDateTime::Now().Format("%Y%m%d-%H%M%S"));
+    wxFileName tmp(wxStandardPaths::Get().GetTempDir(), server_name);
+    const wxString local_path = tmp.GetFullPath();
+
+    if (! plater->export_3mf(into_path(local_path), SaveStrategy::Silence)) {
+        wxMessageBox(_L("Could not export the current plate."),
+                     _L("Send to 3DPrintForge"), wxOK | wxICON_ERROR, this);
+        return;
+    }
+
+    CloudProvider* prov = cloud_provider("3dprintforge");
+    if (prov == nullptr)
+        return;
+
+    CloudJobResult res;
+    {
+        wxBusyCursor wait;
+        res = prov->send_job(into_u8(local_path), into_u8(server_name), std::string(), true);
+    }
+
+    if (res.ok)
+        wxMessageBox(_L("Plate uploaded to the 3DPrintForge queue."),
+                     _L("Send to 3DPrintForge"), wxOK | wxICON_INFORMATION, this);
+    else
+        wxMessageBox(wxString::Format(_L("Upload failed: %s"), res.message),
+                     _L("Send to 3DPrintForge"), wxOK | wxICON_ERROR, this);
+}
+
 void MainFrame::init_menubar_as_editor()
 {
 #ifdef __APPLE__
@@ -3320,6 +3363,10 @@ void MainFrame::init_menubar_as_editor()
             dlg.ShowModal();
         }, "", nullptr,
         [this]() { return true; }, this);
+    append_menu_item(forge_menu_linux, wxID_ANY, _L("Send to 3DPrintForge..."),
+        _L("Upload the current plate to the 3DPrintForge dashboard queue"),
+        [this](wxCommandEvent&) { send_plate_to_3dprintforge(); }, "", nullptr,
+        [this]() { return true; }, this);
     m_topbar->AddDropDownSubMenu(forge_menu_linux, _L("Forge"));
 
     m_topbar->AddDropDownSubMenu(helpMenu, _L("Help"));
@@ -3541,6 +3588,10 @@ void MainFrame::init_menubar_as_editor()
             Slic3r::GUI::ForgeLibraryDialog dlg(this);
             dlg.ShowModal();
         }, "", nullptr,
+        [this]() { return true; }, this);
+    append_menu_item(forge_menu, wxID_ANY, _L("Send to 3DPrintForge..."),
+        _L("Upload the current plate to the 3DPrintForge dashboard queue"),
+        [this](wxCommandEvent&) { send_plate_to_3dprintforge(); }, "", nullptr,
         [this]() { return true; }, this);
     m_menubar->Append(forge_menu, wxString::Format("&%s", _L("Forge")));
 

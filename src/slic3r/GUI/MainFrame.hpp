@@ -211,6 +211,9 @@ protected:
 public:
     MainFrame();
     ~MainFrame() = default;
+
+    // Export the current plate and upload it to the 3DPrintForge dashboard queue.
+    void send_plate_to_3dprintforge();
 #ifdef __APPLE__
     bool get_mac_full_screen() { return m_mac_fullscreen; }
 #endif
