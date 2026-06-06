@@ -983,7 +983,7 @@ int MoonrakerPrinterAgent::handle_request(const std::string& dev_id, const std::
 
         const std::string cmd = command.get<std::string>();
 
-        // Handle gcode_line command - this is how G-code commands are sent from OrcaSlicer
+        // Handle gcode_line command - this is how G-code commands are sent from 3DPrintForge Slicer
         if (cmd == "gcode_line") {
             if (!json["print"].contains("param") || !json["print"]["param"].is_string()) {
                 BOOST_LOG_TRIVIAL(error) << "MoonrakerPrinterAgent: gcode_line missing param value, full json: " << json_str;

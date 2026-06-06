@@ -47,8 +47,8 @@ using json = nlohmann::json;
 namespace Slic3r {
 
 namespace {
-constexpr const char* ORCA_DEFAULT_API_URL = "api.orcaslicer.com";
-constexpr const char* ORCA_DEFAULT_AUTH_URL = "https://auth.orcaslicer.com";
+constexpr const char* ORCA_DEFAULT_API_URL = "api.3dprintforge.local";
+constexpr const char* ORCA_DEFAULT_AUTH_URL = "https://auth.3dprintforge.local";
 constexpr const char* ORCA_DEFAULT_CLOUD_URL = "";
 // Orca: This is a public key with no secret, used to identify the client application to the backend.
 constexpr const char* ORCA_DEFAULT_PUB_KEY = "sb_publishable_lvVe_whOi80SU9BPSxM1kA_tbt9AbR_";
@@ -71,7 +71,7 @@ constexpr const char* CONFIG_ORCA_AUTH_URL = "orca_auth_url";
 constexpr const char* CONFIG_ORCA_CLOUD_URL = "orca_cloud_url";
 constexpr const char* CONFIG_ORCA_PUB_KEY = "orca_pub_key";
 
-constexpr const char* SECRET_STORE_SERVICE = "OrcaSlicer/Auth";
+constexpr const char* SECRET_STORE_SERVICE = "3DPrintForgeSlicer/Auth";
 constexpr const char* SECRET_STORE_USER    = "orca_refresh_token";
 constexpr std::chrono::seconds TOKEN_REFRESH_SKEW{900}; // 15 minutes
 

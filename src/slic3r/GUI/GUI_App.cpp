@@ -410,7 +410,7 @@ static void migrate_flatpak_legacy_datadir(const boost::filesystem::path &data_d
     std::cerr << "Migrating Flatpak data dir: " << data_dir_path << std::endl;
 
     std::string legacy_data_dir_str = data_dir_path.string();
-    boost::replace_first(legacy_data_dir_str, "com.orcaslicer.OrcaSlicer", "io.github.orcaslicer.OrcaSlicer");
+    boost::replace_first(legacy_data_dir_str, "com.3dprintforge.Slicer", "io.github.skynett81.3DPrintForgeSlicer");
     const fs::path legacy_data_dir(legacy_data_dir_str);
 
     std::cerr << "Legacy Flatpak data dir: " << legacy_data_dir << std::endl;
@@ -2246,9 +2246,9 @@ static boost::optional<Semver> parse_semver_from_ini(std::string path)
     std::stringstream buffer;
     buffer << stream.rdbuf();
     std::string body = buffer.str();
-    size_t start = body.find("OrcaSlicer ");
+    size_t start = body.find("3DPrintForge Slicer ");
     if (start == std::string::npos) {
-        start = body.find("OrcaSlicer ");
+        start = body.find("3DPrintForge Slicer ");
         if (start == std::string::npos)
             return boost::none;
     }
@@ -2375,7 +2375,7 @@ void GUI_App::init_app_config()
     set_log_path_and_level(log_filename, 3);
 #endif
 
-    BOOST_LOG_TRIVIAL(info) << boost::format("gui mode, Current OrcaSlicer Version %1% build %2%") % SoftFever_VERSION % GIT_COMMIT_HASH;
+    BOOST_LOG_TRIVIAL(info) << boost::format("gui mode, Current 3DPrintForge Slicer Version %1% build %2%") % SoftFever_VERSION % GIT_COMMIT_HASH;
 
     //BBS: remove GCodeViewer as seperate APP logic
 	if (!app_config)
@@ -2585,7 +2585,7 @@ bool GUI_App::on_init_inner()
     wxLog::SetActiveTarget(new wxBoostLog());
 
 #ifdef __APPLE__
-    // Override wxWidgets' kAEGetURL handler so orcaslicer:// deep links keep
+    // Override wxWidgets' kAEGetURL handler so 3dprintforge:// deep links keep
     // working after the wxWidgets 3.3.2 upgrade on macOS (#13119).
     register_mac_deep_link_handler();
 #endif
@@ -3157,7 +3157,7 @@ bool GUI_App::on_init_inner()
         m_config_corrupted = false;
         show_error(nullptr,
                    _u8L(
-                       "The OrcaSlicer configuration file may be corrupted and cannot be parsed.\nOrcaSlicer has attempted to recreate the "
+                       "The 3DPrintForge Slicer configuration file may be corrupted and cannot be parsed.\n3DPrintForge Slicer has attempted to recreate the "
                        "configuration file.\nPlease note, application settings will be lost, but printer profiles will not be affected."));
     }
     return true;
@@ -5480,7 +5480,7 @@ void maybe_attach_updater_signature(Http& http, const std::string& canonical_que
 void GUI_App::check_new_version_sf(bool show_tips, int by_user)
 {
     // 3DPrintForge Slicer: the upstream updater hits the SoftFever
-    // OrcaSlicer release feed and prompts the user to download
+    // 3DPrintForge Slicer release feed and prompts the user to download
     // '3DPrintForge Slicer X.Y.Z-alpha'. That's confusing for users of the
     // rebranded fork and would replace the binary with upstream. We
     // disable the auto-check entirely; a future 3DPrintForge updater
@@ -5708,7 +5708,7 @@ bool GUI_App::process_network_msg(std::string dev_id, std::string msg)
                            "1. Turn on LAN mode\n"
                            "2. Enable Developer mode\n\n"
                            "Developer mode allows the printer to work exclusively through local network access, "
-                           "enabling full functionality with OrcaSlicer."),
+                           "enabling full functionality with 3DPrintForge Slicer."),
                         _L("Network Plug-in Restriction"), wxAPPLY | wxOK);
             m_show_error_msgdlg = true;
             msg_dlg.ShowModal();
@@ -7331,7 +7331,7 @@ bool GUI_App::load_language(wxString language, bool initial)
     	// Get the active language from PrusaSlicer.ini, or empty string if the key does not exist.
         language = app_config->get("language");
         if (! language.empty())
-        	BOOST_LOG_TRIVIAL(info) << boost::format("language provided by OrcaSlicer.conf: %1%") % language;
+        	BOOST_LOG_TRIVIAL(info) << boost::format("language provided by 3DPrintForge Slicer.conf: %1%") % language;
         else {
             // Get the system language.
             const wxLanguage lang_system = wxLanguage(wxLocale::GetSystemLanguage());
@@ -7388,7 +7388,7 @@ bool GUI_App::load_language(wxString language, bool initial)
 	}
 
 	if (language_info != nullptr && language_info->LayoutDirection == wxLayout_RightToLeft) {
-    	BOOST_LOG_TRIVIAL(trace) << boost::format("The following language code requires right to left layout, which is not supported by OrcaSlicer: %1%") % language_info->CanonicalName.ToUTF8().data();
+    	BOOST_LOG_TRIVIAL(trace) << boost::format("The following language code requires right to left layout, which is not supported by 3DPrintForge Slicer: %1%") % language_info->CanonicalName.ToUTF8().data();
 		language_info = nullptr;
 	}
 
@@ -8381,7 +8381,7 @@ void GUI_App::OSXStoreOpenFiles(const wxArrayString &fileNames)
         if (is_gcode_file(into_u8(filename)))
             ++ num_gcodes;
     if (fileNames.size() == num_gcodes) {
-        // Opening PrusaSlicer by drag & dropping a G-Code onto OrcaSlicer icon in Finder,
+        // Opening PrusaSlicer by drag & dropping a G-Code onto 3DPrintForge Slicer icon in Finder,
         // just G-codes were passed. Switch to G-code viewer mode.
         m_app_mode = EAppMode::GCodeViewer;
         unlock_lockfile(get_instance_hash_string() + ".lock", data_dir() + "/cache/");
@@ -8566,9 +8566,9 @@ void GUI_App::open_mall_page_dialog()
     }
 
     if (link_url.find("?") != std::string::npos) {
-        link_url += "&from=orcaslicer";
+        link_url += "&from=3dprintforge";
     } else {
-        link_url += "?from=orcaslicer";
+        link_url += "?from=3dprintforge";
     }
 
     wxLaunchDefaultBrowser(link_url);
@@ -8953,7 +8953,7 @@ bool GUI_App::config_wizard_startup()
     // is a webkit2gtk-driven dialog that renders as a blank panel on
     // NVIDIA + Wayland (GBM buffer errors), so first-launch users would
     // get stuck. The Forge config-migration path already drops the user
-    // straight into the same datadir as upstream OrcaSlicer if they had
+    // straight into the same datadir as upstream 3DPrintForge Slicer if they had
     // one, and the Settings -> Printer Studio entry still lets a user
     // pick vendor profiles by hand. Users can still re-trigger the
     // wizard manually via Help -> Setup Wizard.

@@ -6002,8 +6002,8 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             log_and_show_3mf_info(msg_unsupported_geometry, load_3mf_title);
                     }
                     else if (en_3mf_file_type == En3mfType::From_Orca) {
-                        // OrcaSlicer file (has OrcaSlicer tag) - compare file_version with SoftFever_VERSION
-                        // Migration fix for OrcaSlicer 2.3.1-alpha sparse infill rotation template
+                        // 3DPrintForge Slicer file (has 3DPrintForge Slicer tag) - compare file_version with SoftFever_VERSION
+                        // Migration fix for 3DPrintForge Slicer 2.3.1-alpha sparse infill rotation template
                         if (load_config && (file_version < app_version) && file_version == Semver("2.3.1-alpha")) {
                             if (!config_loaded.opt_string("sparse_infill_rotate_template").empty()) {
                                 const auto _sparse_infill_pattern =
@@ -6013,11 +6013,11 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                                                          _sparse_infill_pattern == ipLockedZag;
                                 if (!is_safe_to_rotate) {
                                     wxString msg_text = _(
-                                        L("This project was created with an OrcaSlicer 2.3.1-alpha and uses "
+                                        L("This project was created with an 3DPrintForge Slicer 2.3.1-alpha and uses "
                                           "infill rotation template settings that may not work properly with your current infill pattern. "
                                           "This could result in weak support or print quality issues."));
                                     msg_text += "\n\n" +
-                                                _(L("Would you like OrcaSlicer to automatically fix this by clearing the rotation template settings?"));
+                                                _(L("Would you like 3DPrintForge Slicer to automatically fix this by clearing the rotation template settings?"));
                                     MessageDialog dialog(wxGetApp().plater(), msg_text, "", wxICON_WARNING | wxYES | wxNO);
                                     dialog.SetButtonLabel(wxID_YES, _L("Yes"));
                                     dialog.SetButtonLabel(wxID_NO, _L("No"));
@@ -6053,10 +6053,10 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                         }
                     }
                     else if (en_3mf_file_type == En3mfType::From_BBS) {
-                        // No OrcaSlicer tag - check Bambu/Application version
+                        // No 3DPrintForge Slicer tag - check Bambu/Application version
                         Semver orca_tag_start_version(2, 3, 2);
                         if (file_version <= orca_tag_start_version) {
-                            // Compatible old version (before OrcaSlicer tagging was introduced after 2.3.2).
+                            // Compatible old version (before 3DPrintForge Slicer tagging was introduced after 2.3.2).
                             // Any version prior or equal to 2.3.2 is older than the current one, no version warnings needed.
                             // Still apply migration fixes for known old versions.
                             if (load_config && (file_version == Semver("2.3.1-alpha"))) {
@@ -6068,11 +6068,11 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                                                              _sparse_infill_pattern == ipLockedZag;
                                     if (!is_safe_to_rotate) {
                                         wxString msg_text = _(
-                                            L("This project was created with an OrcaSlicer 2.3.1-alpha and uses "
+                                            L("This project was created with an 3DPrintForge Slicer 2.3.1-alpha and uses "
                                               "infill rotation template settings that may not work properly with your current infill pattern. "
                                               "This could result in weak support or print quality issues."));
                                         msg_text += "\n\n" +
-                                                    _(L("Would you like OrcaSlicer to automatically fix this by clearing the rotation template settings?"));
+                                                    _(L("Would you like 3DPrintForge Slicer to automatically fix this by clearing the rotation template settings?"));
                                         MessageDialog dialog(wxGetApp().plater(), msg_text, "", wxICON_WARNING | wxYES | wxNO);
                                         dialog.SetButtonLabel(wxID_YES, _L("Yes"));
                                         dialog.SetButtonLabel(wxID_NO, _L("No"));
@@ -6087,7 +6087,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                                 log_and_show_3mf_info(msg_older_geometry, load_3mf_title);
                             }
                         } else {
-                            // BambuStudio project (version > 2.3.2 without OrcaSlicer tag)
+                            // BambuStudio project (version > 2.3.2 without 3DPrintForge Slicer tag)
                             // Report that a BambuStudio project is being imported and compare with SLIC3R_VERSION
                             Semver slic3r_version = *(Semver::parse(SLIC3R_VERSION));
                             if (load_config && config_loaded.empty()) {

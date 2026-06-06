@@ -185,7 +185,7 @@ void set_data_dir(const std::string &path);
 const std::string& data_dir();
 
 // One-shot migration: if the configured data_dir() looks fresh (missing
-// or empty) and a legacy OrcaSlicer config exists alongside it (same
+// or empty) and a legacy 3DPrintForge Slicer config exists alongside it (same
 // parent directory), copy the legacy tree over so existing users don't
 // lose their printer/filament/process selections on first launch of
 // the rebranded binary. Safe to call multiple times — returns false
@@ -278,7 +278,7 @@ extern bool is_shapes_dir(const std::string& dir);
 extern bool is_json_file(const std::string& path);
 
 // Orca: custom protocal support utils
-inline bool is_orca_open(const std::string& url) { return boost::starts_with(url, "orcaslicer://open"); }
+inline bool is_orca_open(const std::string& url) { return boost::starts_with(url, "3dprintforge://open"); }
 inline bool is_prusaslicer_open(const std::string& url) { return boost::starts_with(url, "prusaslicer://open"); }
 inline bool is_bambustudio_open(const std::string& url) { return boost::starts_with(url, "bambustudio://open") || boost::starts_with(url, "bambustudioopen://"); }
 inline bool is_cura_open(const std::string& url) { return boost::starts_with(url, "cura://open"); }

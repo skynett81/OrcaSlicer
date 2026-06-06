@@ -8,7 +8,7 @@ class PresetBundle;
 
 namespace forge_slicer {
 
-// Inject the OrcaSlicer PresetBundle that the REST service should read
+// Inject the 3DPrintForge Slicer PresetBundle that the REST service should read
 // profiles from. Pass nullptr to detach. Safe to call before or after
 // start(). In GUI mode this is &wxGetApp().preset_bundle; in headless
 // mode the caller must construct a PresetBundle from data_dir() first.

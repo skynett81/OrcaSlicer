@@ -1,7 +1,7 @@
-// rest_server.cpp — embedded HTTP server for skynett81/OrcaSlicer fork
+// rest_server.cpp — embedded HTTP server for skynett81/3DPrintForge Slicer fork
 //
 // Phase 1 reference implementation. Wires cpp-httplib + nlohmann/json
-// onto the existing OrcaSlicer profile manager / slicing pipeline.
+// onto the existing 3DPrintForge Slicer profile manager / slicing pipeline.
 // Drop into src/forge/ in your fork, link cpp-httplib (header-only),
 // and call rest_server::start(port) from your main entry point when
 // the --rest-port CLI flag is set.
@@ -304,7 +304,7 @@ inline std::string iso_now() {
 }
 
 // Use lbegin() (not cbegin()) so we expose the default presets that
-// ship with OrcaSlicer too — cbegin() skips the first
+// ship with 3DPrintForge Slicer too — cbegin() skips the first
 // m_num_default_presets entries, which means a fresh install with no
 // vendor profiles installed would otherwise return an empty array.
 static nlohmann::json list_profiles(const std::string& kind, const std::string& vendor_filter) {

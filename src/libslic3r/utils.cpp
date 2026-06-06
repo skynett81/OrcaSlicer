@@ -342,7 +342,7 @@ bool migrate_legacy_orcaslicer_data_dir()
             }
         }
         // AppConfig writes/reads "<SLIC3R_APP_KEY>.conf|.ini" — rename the
-        // legacy "OrcaSlicer.{conf,ini}" we just copied so the rebranded
+        // legacy "3DPrintForge Slicer.{conf,ini}" we just copied so the rebranded
         // binary picks up the user's settings on first read.
         for (const std::string& ext : { std::string(".conf"), std::string(".ini") }) {
             fs::path src_cfg = new_dir / ("OrcaSlicer" + ext);
