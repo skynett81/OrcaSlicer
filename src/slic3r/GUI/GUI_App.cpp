@@ -388,7 +388,7 @@ private:
     wxColour m_fg_color;
     wxColour m_bg_color;
 
-    wxString m_text_version = wxString::FromUTF8(SLIC3R_APP_NAME) + " v" + GUI_App::format_display_version();
+    wxString m_text_version = "v" + GUI_App::format_display_version();
     wxString m_text_action  = _L("Loading configuration") + dots;
 
     wxFont m_font_version = Label::Body_16;
