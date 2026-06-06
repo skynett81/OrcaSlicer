@@ -12,6 +12,8 @@ class wxListCtrl;
 class wxStaticText;
 class wxButton;
 class wxTextCtrl;
+class wxStaticBitmap;
+class wxListEvent;
 
 namespace Slic3r { namespace GUI {
 
@@ -41,6 +43,8 @@ private:
 
     void refresh_printer_list();
     void update_status_bar(const std::string& msg);
+    void on_select(wxListEvent& evt);
+    void update_detail();   // refresh the selected printer's info + camera
 
     std::unique_ptr<ForgeCloudAgent> m_agent;
 
@@ -51,8 +55,11 @@ private:
     wxButton*     m_btn_configure  = nullptr;
     wxButton*     m_btn_login      = nullptr;
     wxButton*     m_btn_print      = nullptr;
+    wxStaticText* m_detail_label   = nullptr;
+    wxStaticBitmap* m_camera       = nullptr;
     wxTimer       m_poll_timer;
 
+    std::string   m_selected_printer_id;
     std::vector<ForgePrinter> m_printers;
 };
 

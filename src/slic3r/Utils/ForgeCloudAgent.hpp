@@ -58,6 +58,10 @@ public:
     std::optional<std::string> start_print(const std::string& printer_id,
                                            const std::string& gcode_path);
 
+    // Fetches the latest camera JPEG frame for a printer (raw bytes), or
+    // an empty string on failure. Endpoint: GET /api/printers/{id}/frame.jpeg.
+    std::string get_camera_frame(const std::string& printer_id);
+
     // Returns time of last successful API call — UI uses this to show
     // freshness in the fleet panel ("synced 12s ago").
     std::chrono::steady_clock::time_point last_synced() const { return m_last_synced; }

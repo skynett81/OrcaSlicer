@@ -10,6 +10,9 @@
 #include <wx/listctrl.h>
 #include <wx/textdlg.h>
 #include <wx/msgdlg.h>
+#include <wx/statbmp.h>
+#include <wx/mstream.h>
+#include <wx/image.h>
 
 namespace Slic3r { namespace GUI {
 
@@ -86,7 +89,20 @@ void ForgeFleetPanel::build_ui()
     m_list->AppendColumn(_L("Host"),     wxLIST_FORMAT_LEFT, 160);
     m_list->AppendColumn(_L("Status"),   wxLIST_FORMAT_LEFT, 140);
     m_list->AppendColumn(_L("Progress"), wxLIST_FORMAT_LEFT, 100);
-    root->Add(m_list, 1, wxALL | wxEXPAND, 14);
+
+    // Printer list on the left, per-printer detail + camera on the right.
+    auto* body = new wxBoxSizer(wxHORIZONTAL);
+    body->Add(m_list, 2, wxEXPAND | wxRIGHT, 10);
+
+    auto* detail = new wxBoxSizer(wxVERTICAL);
+    m_detail_label = new wxStaticText(this, wxID_ANY, _L("Select a printer to see details."));
+    detail->Add(m_detail_label, 0, wxBOTTOM, 8);
+    m_camera = new wxStaticBitmap(this, wxID_ANY, wxBitmap());
+    m_camera->SetMinSize(wxSize(320, 240));
+    detail->Add(m_camera, 1, wxEXPAND);
+    body->Add(detail, 1, wxEXPAND);
+
+    root->Add(body, 1, wxALL | wxEXPAND, 14);
 
     SetSizer(root);
 
@@ -94,6 +110,53 @@ void ForgeFleetPanel::build_ui()
     m_btn_configure->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_configure, this);
     m_btn_refresh  ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_refresh, this);
     m_btn_print    ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_print, this);
+    m_list->Bind(wxEVT_LIST_ITEM_SELECTED, &ForgeFleetPanel::on_select, this);
+}
+
+void ForgeFleetPanel::on_select(wxListEvent& evt)
+{
+    long idx = evt.GetIndex();
+    m_selected_printer_id = (idx >= 0 && idx < (long)m_printers.size())
+                            ? m_printers[idx].id : std::string();
+    update_detail();
+}
+
+void ForgeFleetPanel::update_detail()
+{
+    if (m_selected_printer_id.empty() || !m_detail_label) {
+        if (m_detail_label) m_detail_label->SetLabel(_L("Select a printer to see details."));
+        if (m_camera) m_camera->SetBitmap(wxBitmap());
+        return;
+    }
+    // Find the selected printer in the current roster.
+    const ForgePrinter* p = nullptr;
+    for (const auto& fp : m_printers)
+        if (fp.id == m_selected_printer_id) { p = &fp; break; }
+    if (!p) return;
+
+    wxString info = wxString::FromUTF8(p->name);
+    if (!p->vendor.empty()) info += " · " + wxString::FromUTF8(p->vendor);
+    wxString st = p->status.empty() ? wxString::FromUTF8(p->state) : wxString::FromUTF8(p->status);
+    if (!st.empty()) info += "\n" + _L("Status: ") + st;
+    if (!p->current_job.empty()) info += "\n" + _L("Job: ") + wxString::FromUTF8(p->current_job);
+    if (p->progress_pct > 0) info += wxString::Format("  (%d%%)", p->progress_pct);
+    m_detail_label->SetLabel(info);
+
+    // Pull a fresh camera frame (JPEG) and show it; gracefully blank if none.
+    std::string jpeg = m_agent->get_camera_frame(m_selected_printer_id);
+    if (!jpeg.empty()) {
+        wxMemoryInputStream mis(jpeg.data(), jpeg.size());
+        wxImage img;
+        if (img.LoadFile(mis, wxBITMAP_TYPE_JPEG) && img.IsOk()) {
+            wxSize sz = m_camera->GetSize();
+            if (sz.GetWidth() > 16 && sz.GetHeight() > 16)
+                img = img.Scale(sz.GetWidth(), sz.GetHeight(), wxIMAGE_QUALITY_HIGH);
+            m_camera->SetBitmap(wxBitmap(img));
+        }
+    } else {
+        m_camera->SetBitmap(wxBitmap());
+    }
+    Layout();
 }
 
 void ForgeFleetPanel::on_show()
@@ -111,6 +174,8 @@ void ForgeFleetPanel::on_hide()
 void ForgeFleetPanel::on_timer(wxTimerEvent& /*evt*/)
 {
     refresh_printer_list();
+    if (!m_selected_printer_id.empty())
+        update_detail();   // refresh status + camera frame for the open printer
 }
 
 void ForgeFleetPanel::on_refresh(wxCommandEvent& /*evt*/)

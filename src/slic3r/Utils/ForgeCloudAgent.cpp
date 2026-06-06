@@ -189,4 +189,14 @@ std::optional<std::string> ForgeCloudAgent::start_print(const std::string& print
     }
 }
 
+std::string ForgeCloudAgent::get_camera_frame(const std::string& printer_id)
+{
+    auto cli = make_client(m_server_url);
+    auto res = cli->Get("/api/printers/" + printer_id + "/frame.jpeg",
+                        auth_headers(m_auth.session_token));
+    if (!res || res->status != 200)
+        return std::string();
+    return res->body; // raw JPEG bytes
+}
+
 } // namespace Slic3r
