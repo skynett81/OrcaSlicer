@@ -53,6 +53,11 @@ public:
 std::vector<CloudProvider*> cloud_providers();
 CloudProvider*              cloud_provider(const std::string& id);
 
+// Push the slicer's printer/filament/process profile catalog to the
+// 3DPrintForge dashboard (POST /api/slicer/profiles/push). On-demand
+// complement to the dashboard's periodic pull — works in GUI-only mode.
+CloudJobResult sync_profiles_to_forge();
+
 // Shared 3DPrintForge dashboard URL.
 // Resolution order: AppConfig "forge_dashboard_url" -> env FORGE_DASHBOARD_URL
 // -> AppConfig "forge_server_url" (fleet panel's key) -> https://localhost:3443.

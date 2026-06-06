@@ -3368,6 +3368,16 @@ void MainFrame::init_menubar_as_editor()
         _L("Upload the current plate to the 3DPrintForge dashboard queue"),
         [this](wxCommandEvent&) { send_plate_to_3dprintforge(); }, "", nullptr,
         [this]() { return true; }, this);
+    append_menu_item(forge_menu_linux, wxID_ANY, _L("Sync Profiles to 3DPrintForge"),
+        _L("Push this slicer's printer/filament/process profiles to the dashboard"),
+        [this](wxCommandEvent&) {
+            wxBusyCursor wait;
+            CloudJobResult res = sync_profiles_to_forge();
+            wxMessageBox(res.ok ? _L("Profiles synced to 3DPrintForge.")
+                                : wxString::Format(_L("Sync failed: %s"), res.message),
+                         _L("Sync Profiles"), wxOK | (res.ok ? wxICON_INFORMATION : wxICON_ERROR), this);
+        }, "", nullptr,
+        [this]() { return true; }, this);
     append_menu_item(forge_menu_linux, wxID_ANY, _L("Cloud && Remote Settings..."),
         _L("Configure the 3DPrintForge dashboard URL and cloud providers"),
         [this](wxCommandEvent&) {
@@ -3600,6 +3610,16 @@ void MainFrame::init_menubar_as_editor()
     append_menu_item(forge_menu, wxID_ANY, _L("Send to 3DPrintForge..."),
         _L("Upload the current plate to the 3DPrintForge dashboard queue"),
         [this](wxCommandEvent&) { send_plate_to_3dprintforge(); }, "", nullptr,
+        [this]() { return true; }, this);
+    append_menu_item(forge_menu, wxID_ANY, _L("Sync Profiles to 3DPrintForge"),
+        _L("Push this slicer's printer/filament/process profiles to the dashboard"),
+        [this](wxCommandEvent&) {
+            wxBusyCursor wait;
+            CloudJobResult res = sync_profiles_to_forge();
+            wxMessageBox(res.ok ? _L("Profiles synced to 3DPrintForge.")
+                                : wxString::Format(_L("Sync failed: %s"), res.message),
+                         _L("Sync Profiles"), wxOK | (res.ok ? wxICON_INFORMATION : wxICON_ERROR), this);
+        }, "", nullptr,
         [this]() { return true; }, this);
     append_menu_item(forge_menu, wxID_ANY, _L("Cloud && Remote Settings..."),
         _L("Configure the 3DPrintForge dashboard URL and cloud providers"),

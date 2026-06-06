@@ -2,15 +2,22 @@
 
 #include <cstdlib>
 #include <cctype>
+#include <cstdio>
 #include <string>
 #include <vector>
+
+#include <fstream>
 
 #include <wx/string.h>
 #include <wx/utils.h>   // wxExecute
 #include <wx/arrstr.h>
+#include <wx/stdpaths.h>
+#include <wx/filename.h>
 
 #include "GUI_App.hpp"
 #include "libslic3r/AppConfig.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/Preset.hpp"
 
 namespace Slic3r { namespace GUI {
 
@@ -127,6 +134,79 @@ CloudProvider* cloud_provider(const std::string& id)
         if (p->id() == id)
             return p;
     return nullptr;
+}
+
+// ---------------------------------------------------------------------------
+// Profile catalog push (slicer -> dashboard)
+// ---------------------------------------------------------------------------
+static std::string json_escape(const std::string& s)
+{
+    std::string o;
+    o.reserve(s.size() + 8);
+    for (char c : s) {
+        switch (c) {
+            case '"':  o += "\\\""; break;
+            case '\\': o += "\\\\"; break;
+            case '\n': o += "\\n";  break;
+            case '\r': o += "\\r";  break;
+            case '\t': o += "\\t";  break;
+            default:
+                if (static_cast<unsigned char>(c) < 0x20) {
+                    char buf[8];
+                    std::snprintf(buf, sizeof(buf), "\\u%04x", static_cast<unsigned char>(c));
+                    o += buf;
+                } else {
+                    o += c;
+                }
+        }
+    }
+    return o;
+}
+
+CloudJobResult sync_profiles_to_forge()
+{
+    CloudJobResult r;
+    Slic3r::PresetBundle* pb = wxGetApp().preset_bundle;
+    if (pb == nullptr) { r.message = "no preset bundle loaded"; return r; }
+
+    std::string body = "{\"profiles\":[";
+    bool first = true;
+    auto add = [&](Slic3r::PresetCollection& coll, const char* kind) {
+        for (auto it = coll.lbegin(); it != coll.end(); ++it) {
+            const Slic3r::Preset& p = *it;
+            if (!first) body += ',';
+            first = false;
+            body += "{\"kind\":\"";
+            body += kind;
+            body += "\",\"name\":\"";
+            body += json_escape(p.name);
+            body += "\"}";
+        }
+    };
+    add(pb->printers,  "printer");
+    add(pb->filaments, "filament");
+    add(pb->prints,    "process");
+    body += "]}";
+
+    wxFileName pfn(wxStandardPaths::Get().GetTempDir(), "forge-profiles-push.json");
+    const std::string param_path = pfn.GetFullPath().ToStdString();
+    { std::ofstream pf(param_path, std::ios::binary); pf << body; }
+
+    const std::string url = forge_dashboard_url() + "/api/slicer/profiles/push";
+    wxString cmd = wxString::Format(
+        "curl -ks -X POST \"%s\" -H \"Content-Type: application/json\" -d @\"%s\" --max-time 60",
+        wxString::FromUTF8(url.c_str()), wxString::FromUTF8(param_path.c_str()));
+
+    wxArrayString out, err;
+    long ec = wxExecute(cmd, out, err, wxEXEC_SYNC | wxEXEC_HIDE_CONSOLE);
+    if (ec != 0) {
+        r.message = "curl exit code " + std::to_string(ec) +
+                    " (is 3DPrintForge running at " + forge_dashboard_url() + "?)";
+        return r;
+    }
+    r.ok = true;
+    if (!out.IsEmpty()) r.message = out[0].ToStdString();
+    return r;
 }
 
 }} // namespace Slic3r::GUI
