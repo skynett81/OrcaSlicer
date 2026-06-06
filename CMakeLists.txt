@@ -939,17 +939,17 @@ set (CPACK_PACKAGE_INSTALL_DIRECTORY ${CPACK_PACKAGE_NAME})
 set (CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/resources/images\\\\OrcaSlicer.ico")
 set (CPACK_NSIS_MUI_ICON "${CPACK_PACKAGE_ICON}")
 set (CPACK_NSIS_MUI_UNIICON "${CPACK_PACKAGE_ICON}")
-set (CPACK_NSIS_INSTALLED_ICON_NAME  "$INSTDIR\\\\orca-slicer.exe")
+set (CPACK_NSIS_INSTALLED_ICON_NAME  "$INSTDIR\\\\3dprintforge-slicer.exe")
 set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
-    CreateShortCut \\\"$DESKTOP\\\\3DPrintForge Slicer.lnk\\\" \\\"$INSTDIR\\\\orca-slicer.exe\\\"
+    CreateShortCut \\\"$DESKTOP\\\\3DPrintForge Slicer.lnk\\\" \\\"$INSTDIR\\\\3dprintforge-slicer.exe\\\"
 ")
 set (CPACK_PACKAGE_CHECKSUM SHA256)
 set (CPACK_PACKAGE_INSTALL_REGISTRY_KEY "3DPrintForgeSlicer")
 set (CPACK_NSIS_ENABLE_UNINSTALL_BEFORE_INSTALL ON)
 set (CPACK_NSIS_EXECUTABLES_DIRECTORY ".")
 # set (CPACK_NSIS_MODIFY_PATH "ON")
-set(CPACK_PACKAGE_EXECUTABLES "orca-slicer;3DPrintForge Slicer")
-set(CPACK_CREATE_DESKTOP_LINKS "orca-slicer")
+set(CPACK_PACKAGE_EXECUTABLES "3dprintforge-slicer;3DPrintForge Slicer")
+set(CPACK_CREATE_DESKTOP_LINKS "3dprintforge-slicer")
 set (CPACK_RESOURCE_FILE_LICENSE ${CMAKE_SOURCE_DIR}/LICENSE.txt) # must also include in install command
 
 set(CPACK_WIX_UPGRADE_GUID "058245e8-20e0-4a95-9ab7-1acfe17ad511")

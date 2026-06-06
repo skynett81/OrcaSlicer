@@ -383,7 +383,7 @@ jobs:
         shell: bash
         run: |
           ./build_linux.sh -istrlL
-          ./scripts/check_appimage_libs.sh ./build/package ./build/package/bin/orca-slicer
+          ./scripts/check_appimage_libs.sh ./build/package ./build/package/bin/3dprintforge-slicer
           mv -n ./build/OrcaSlicer_Linux_V${{ env.ver_pure }}.AppImage ./build/OrcaSlicer_Linux_AppImage${{ env.ubuntu-ver-str }}_${{ env.ver }}.AppImage
           chmod +x ./build/OrcaSlicer_Linux_AppImage${{ env.ubuntu-ver-str }}_${{ env.ver }}.AppImage
           tar -cvpf build_tests.tar build/tests
@@ -408,7 +408,7 @@ jobs:
           test_repo_dir="${{ runner.temp }}/orca-test-repo"
           rm -rf "$test_repo_dir"
           git clone --depth 1 https://github.com/OrcaSlicer/orca-test-repo.git "$test_repo_dir"
-          python3 "$test_repo_dir/run_test.py" "${{ github.workspace }}/build/package/bin/orca-slicer"
+          python3 "$test_repo_dir/run_test.py" "${{ github.workspace }}/build/package/bin/3dprintforge-slicer"
 
       - name: Build orca_custom_preset_tests
         if: github.ref == 'refs/heads/main' && runner.os == 'Linux' && !vars.SELF_HOSTED

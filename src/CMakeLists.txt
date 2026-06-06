@@ -194,7 +194,7 @@ if (WIN32)
     endif()
     target_compile_definitions(OrcaSlicer_app_gui PRIVATE -DSLIC3R_WRAPPER_NOCONSOLE)
     add_dependencies(OrcaSlicer_app_gui OrcaSlicer)
-    set_target_properties(OrcaSlicer_app_gui PROPERTIES OUTPUT_NAME "orca-slicer")
+    set_target_properties(OrcaSlicer_app_gui PROPERTIES OUTPUT_NAME "3dprintforge-slicer")
     target_link_libraries(OrcaSlicer_app_gui PRIVATE boost_headeronly)
 endif ()
 
@@ -240,9 +240,8 @@ if (WIN32)
 
 else ()
     if (APPLE AND NOT CMAKE_MACOSX_BUNDLE)
-        # On OSX, the name of the binary matches the name of the Application.
+        # On OSX the binary is already named via OUTPUT_NAME (3dprintforge-slicer); no alias needed.
         add_custom_command(TARGET OrcaSlicer POST_BUILD
-            COMMAND ln -sf OrcaSlicer orca-slicer
             WORKING_DIRECTORY "$<TARGET_FILE_DIR:OrcaSlicer>"
             VERBATIM)
     else ()

@@ -342,7 +342,7 @@ void DesktopIntegrationDialog::perform_desktop_integration()
                 "Categories=Graphics;3DGraphics;Engineering;\n"
                 "Keywords=3D;Printing;Slicer;slice;3D;printer;convert;gcode;stl;obj;amf;SLA\n"
                 "StartupNotify=false\n"
-                "StartupWMClass=orca-slicer\n", name_suffix, version_suffix, excutable_path);
+                "StartupWMClass=3dprintforge-slicer\n", name_suffix, version_suffix, excutable_path);
 
             std::string path = GUI::format("%1%/applications/com.3dprintforge.Slicer%2%.desktop", target_dir_desktop, version_suffix);
             if (create_desktop_file(path, desktop_file)){
