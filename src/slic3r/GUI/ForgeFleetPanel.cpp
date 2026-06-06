@@ -101,6 +101,40 @@ void ForgeFleetPanel::build_ui()
     m_camera->SetMinSize(wxSize(320, 240));
     detail->Add(m_camera, 1, wxEXPAND);
 
+    // Filament slots — a color swatch + material per toolhead, mirroring the
+    // Snapmaker Orca device layout. Clicking a slot selects (picks) that tool.
+    // Populated/shown for multi-tool printers in update_detail().
+    m_filament_row = new wxPanel(this, wxID_ANY);
+    {
+        auto* fr = new wxBoxSizer(wxHORIZONTAL);
+        fr->Add(new wxStaticText(m_filament_row, wxID_ANY, _L("Filament:")),
+                0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+        for (int i = 0; i < 4; ++i) {
+            auto* slot = new wxBoxSizer(wxVERTICAL);
+            m_slot[i] = new wxPanel(m_filament_row, wxID_ANY, wxDefaultPosition, wxSize(46, 22),
+                                    wxBORDER_SIMPLE);
+            m_slot[i]->SetBackgroundColour(wxColour(90, 90, 90));
+            m_slot[i]->SetCursor(wxCursor(wxCURSOR_HAND));
+            m_slot_lbl[i] = new wxStaticText(m_filament_row, wxID_ANY, wxString::Format("T%d", i + 1),
+                                             wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL);
+            // Clicking a swatch or its label picks (tool-changes to) that extruder.
+            auto pick = [this, i](wxMouseEvent&) {
+                if (!m_selected_printer_id.empty()) {
+                    m_agent->control_tool(m_selected_printer_id, i);
+                    update_detail();
+                }
+            };
+            m_slot[i]->Bind(wxEVT_LEFT_DOWN, pick);
+            m_slot_lbl[i]->Bind(wxEVT_LEFT_DOWN, pick);
+            slot->Add(m_slot[i], 0, wxALIGN_CENTER | wxBOTTOM, 2);
+            slot->Add(m_slot_lbl[i], 0, wxALIGN_CENTER);
+            fr->Add(slot, 0, wxRIGHT, 8);
+        }
+        m_filament_row->SetSizer(fr);
+    }
+    m_filament_row->Hide();
+    detail->Add(m_filament_row, 0, wxTOP, 8);
+
     // Print controls for the selected printer (routed through the dashboard,
     // which dispatches per brand — Bambu MQTT, Moonraker REST, etc.).
     auto* ctrl_row = new wxBoxSizer(wxHORIZONTAL);
@@ -256,6 +290,35 @@ void ForgeFleetPanel::update_detail()
         if (!temps.empty()) info += "\n" + temps;
     }
     m_detail_label->SetLabel(info);
+
+    // Update the filament slots — color swatch + material per toolhead.
+    // Shown only for multi-tool printers; the active tool's label is bold.
+    if (m_filament_row) {
+        const int ntools = (int)ls.tools.size();
+        const bool show_slots = ntools > 1;
+        for (int i = 0; i < 4; ++i) {
+            if (!m_slot[i] || !m_slot_lbl[i]) continue;
+            const bool has = i < ntools;
+            m_slot[i]->Show(has);
+            m_slot_lbl[i]->Show(has);
+            if (!has) continue;
+            const ForgeToolState& t = ls.tools[i];
+            wxColour col(90, 90, 90);
+            if (!t.color.empty() && t.color[0] == '#') {
+                wxColour parsed(wxString::FromUTF8(t.color));
+                if (parsed.IsOk()) col = parsed;
+            }
+            m_slot[i]->SetBackgroundColour(col);
+            m_slot[i]->Refresh();
+            wxString mat = t.filament.empty() ? _L("Empty") : wxString::FromUTF8(t.filament);
+            m_slot_lbl[i]->SetLabel(wxString::Format("T%d  %s", i + 1, mat));
+            wxFont f = m_slot_lbl[i]->GetFont();
+            f.SetWeight((i == ls.active_tool) ? wxFONTWEIGHT_BOLD : wxFONTWEIGHT_NORMAL);
+            m_slot_lbl[i]->SetFont(f);
+        }
+        if (m_filament_row->IsShown() != show_slots)
+            m_filament_row->Show(show_slots);
+    }
 
     // Pull a fresh camera frame (JPEG) and show it; gracefully blank if none.
     std::string jpeg = m_agent->get_camera_frame(m_selected_printer_id);

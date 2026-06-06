@@ -62,6 +62,9 @@ private:
     wxButton*     m_btn_resume      = nullptr;
     wxButton*     m_btn_stop        = nullptr;
     wxPanel*      m_motion_panel    = nullptr;  // jog/extrude/home/tools (Klipper/Moonraker)
+    wxPanel*      m_filament_row    = nullptr;  // filament slots (multi-tool printers)
+    wxPanel*      m_slot[4]         = { nullptr, nullptr, nullptr, nullptr }; // color swatch per tool
+    wxStaticText* m_slot_lbl[4]     = { nullptr, nullptr, nullptr, nullptr }; // T#/material per tool
     wxTimer       m_poll_timer;
 
     std::string   m_selected_printer_id;
