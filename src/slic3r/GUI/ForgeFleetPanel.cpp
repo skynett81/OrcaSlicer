@@ -236,8 +236,21 @@ void ForgeFleetPanel::update_detail()
     ForgeLiveState ls = m_agent->get_printer_state(m_selected_printer_id);
     if (ls.ok) {
         if (ls.progress_pct >= 0) info += "\n" + _L("Progress: ") + wxString::Format("%d%%", ls.progress_pct);
+        if (!ls.tools.empty()) {
+            // Per-toolhead temps + loaded filament (e.g. Snapmaker U1).
+            for (int i = 0; i < (int)ls.tools.size(); ++i) {
+                const ForgeToolState& t = ls.tools[i];
+                wxString line = wxString::Format("\nT%d%s: ", i + 1, (i == ls.active_tool) ? " *" : "");
+                if (t.temp >= 0)   line += wxString::Format("%.0f", t.temp);
+                if (t.target > 0)  line += wxString::Format("/%.0f", t.target);
+                line += "°C";
+                if (!t.filament.empty()) line += "  " + wxString::FromUTF8(t.filament);
+                info += line;
+            }
+        } else if (ls.nozzle_temp >= 0) {
+            info += wxString::Format("\n" + _L("Nozzle %.0f°C"), ls.nozzle_temp);
+        }
         wxString temps;
-        if (ls.nozzle_temp >= 0)  temps += wxString::Format(_L("Nozzle %.0f°C  "), ls.nozzle_temp);
         if (ls.bed_temp >= 0)     temps += wxString::Format(_L("Bed %.0f°C  "), ls.bed_temp);
         if (ls.chamber_temp >= 0) temps += wxString::Format(_L("Chamber %.0f°C"), ls.chamber_temp);
         if (!temps.empty()) info += "\n" + temps;

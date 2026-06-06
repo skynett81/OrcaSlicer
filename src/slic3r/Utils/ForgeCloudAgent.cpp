@@ -236,6 +236,39 @@ ForgeLiveState ForgeCloudAgent::get_printer_state(const std::string& printer_id)
         ls.chamber_temp = num(root, {"chamber_temper", "chamber_temperature"});
         for (const char* k : {"gcode_state", "state", "print_status"})
             if (root.contains(k) && root[k].is_string()) { ls.state = root[k].get<std::string>(); break; }
+
+        // Per-tool (Snapmaker U1-style): tool 0 = nozzle_temper, tools 1..N =
+        // _extra_extruders[] (ordered T1,T2,T3); filament from _sm_filament[].
+        if (root.contains("_extra_extruders") && root["_extra_extruders"].is_array()) {
+            ForgeToolState t0;
+            t0.temp = ls.nozzle_temp;
+            if (root.contains("nozzle_target_temper") && root["nozzle_target_temper"].is_number())
+                t0.target = root["nozzle_target_temper"].get<double>();
+            ls.tools.push_back(t0);
+            for (const auto& e : root["_extra_extruders"]) {
+                ForgeToolState t;
+                if (e.contains("temperature") && e["temperature"].is_number()) t.temp = e["temperature"].get<double>();
+                if (e.contains("target") && e["target"].is_number())           t.target = e["target"].get<double>();
+                ls.tools.push_back(t);
+            }
+            if (root.contains("_sm_filament") && root["_sm_filament"].is_array()) {
+                const auto& fil = root["_sm_filament"];
+                for (size_t i = 0; i < ls.tools.size() && i < fil.size(); ++i) {
+                    const auto& f = fil[i];
+                    if (f.contains("type") && f["type"].is_string()) {
+                        std::string ty = f["type"].get<std::string>();
+                        if (!ty.empty() && ty != "NONE") ls.tools[i].filament = ty;
+                    }
+                    if (f.contains("color") && f["color"].is_string())
+                        ls.tools[i].color = f["color"].get<std::string>();
+                }
+            }
+            if (root.contains("_active_extruder") && root["_active_extruder"].is_string()) {
+                std::string ae = root["_active_extruder"].get<std::string>();
+                if (ae == "extruder") ls.active_tool = 0;
+                else { try { ls.active_tool = std::stoi(ae.substr(8)); } catch (...) {} }
+            }
+        }
         ls.ok = true;
     } catch (...) {}
     return ls;

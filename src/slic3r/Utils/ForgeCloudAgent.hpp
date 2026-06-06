@@ -22,6 +22,14 @@ struct ForgePrinter {
     std::string error_message;
 };
 
+// Per-toolhead state for multi-extruder printers (e.g. Snapmaker U1).
+struct ForgeToolState {
+    double      temp     = -1;
+    double      target   = -1;
+    std::string filament;   // material type, empty if none loaded
+    std::string color;      // hex, empty if unknown
+};
+
 // Live runtime state for a printer (best-effort, fields are -1 when unknown).
 struct ForgeLiveState {
     bool        ok = false;
@@ -30,6 +38,8 @@ struct ForgeLiveState {
     double      bed_temp     = -1;
     double      chamber_temp = -1;
     std::string state;
+    int         active_tool  = -1;          // index of the active toolhead
+    std::vector<ForgeToolState> tools;      // per-toolhead (empty = single nozzle)
 };
 
 // Authentication / connection state to 3DPrintForge Server.
