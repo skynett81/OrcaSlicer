@@ -69,6 +69,59 @@ filament id, merged into `channels[physical]`. If the painted region prints with
 *single* tool (no alternation) or the wrong tool, adjust the merge target /
 `virtual_id` mapping in the gated block at the top of `apply_mm_segmentation`.
 
+## Headless slicing recipe (for the regression check)
+
+The CLI needs **fully-flattened** presets (it does not resolve `inherits`) and a
+printer whose profile is valid for a bare slice. A Bambu profile is easiest — BBL
+printers skip the relative-E layer-gcode validation. Flatten the inherits chain,
+then slice:
+
+```bash
+# Flatten a machine/process/filament preset (resolve the inherits chain).
+python3 - <<'PY'
+import json, glob
+PROF="resources/profiles"
+def index(sub):
+    idx={}
+    for f in glob.glob(f"{PROF}/**/{sub}/*.json", recursive=True):
+        try:
+            n=json.load(open(f)).get("name")
+            if n and n not in idx: idx[n]=f
+        except: pass
+    return idx
+def flat(name, idx, seen=None):
+    seen=seen or set()
+    if name in seen or name not in idx: return {}
+    seen.add(name); d=json.load(open(idx[name]))
+    out=flat(d.get("inherits",""), idx, seen) if d.get("inherits") else {}
+    for k,v in d.items():
+        if k!="inherits": out[k]=v
+    return out
+def dump(name, sub, typ, fn, extra=None):
+    d=flat(name, index(sub)); d.update({"from":"system","type":typ,"name":name})
+    if extra: d.update(extra)
+    json.dump(d, open(f"/tmp/presets/{fn}","w"))
+import os; os.makedirs("/tmp/presets", exist_ok=True)
+dump("Bambu Lab P2S 0.4 nozzle","machine","machine","machine.json")
+dump("0.20mm Standard @BBL P2S","process","process","process.json")
+dump("Bambu PLA Basic @BBL P2S","filament","filament","f1.json",{"filament_colour":["#FF0000"]})
+dump("Bambu PLA Basic @BBL P2S","filament","filament","f2.json",{"filament_colour":["#0000FF"],"name":"f2"})
+PY
+
+# Two objects on two filaments -> real tool changes (proves multi-tool gcode).
+./build/src/3dprintforge-slicer --slice 0 --arrange 1 \
+  --load-settings "/tmp/presets/machine.json;/tmp/presets/process.json" \
+  --load-filaments "/tmp/presets/f1.json;/tmp/presets/f2.json" \
+  --load-filament-ids "1,2" --outputdir /tmp/cout cube.stl cube2.stl
+
+grep -oE '^T[0-9]' /tmp/cout/plate_1.gcode | sort -u    # expect T0 and T1
+```
+
+> **Verified:** this recipe produces `plate_1.gcode` with both `T0` and `T1`
+> (and `M620` AMS tool changes) — i.e. normal multi-filament slicing is intact
+> with the mixed-colour engine changes in place. The **mixed/virtual** path still
+> needs the GUI paint step (no headless way to author per-triangle paint data).
+
 ## 5. Regression check (must pass)
 
 Slice the **same model with NO mixed filament / no virtual paint**. The G-code must
