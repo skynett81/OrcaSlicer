@@ -1122,6 +1122,7 @@ static std::vector<std::string> s_Preset_print_options{
     "compatible_printers",
     "compatible_printers_condition",
     "inherits",
+    "waste_mode",
     "flush_into_infill",
     "flush_into_objects",
     "flush_into_support",
