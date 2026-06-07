@@ -20,6 +20,9 @@
 #include "../Utils/WxFontUtils.hpp"
 #include "FilamentBitmapUtils.hpp"
 #include "../Utils/ColorSpaceConvert.hpp"
+#include "ForgeCloud.hpp"
+#include "../Utils/ForgeCloudAgent.hpp"
+#include <set>
 #ifndef __linux__
 // msw_menuitem_bitmaps is used for MSW and OSX
 static std::map<int, std::string> msw_menuitem_bitmaps;
@@ -597,14 +600,51 @@ wxColourData show_sys_picker_dialog(wxWindow *parent, const wxColourData &clr_da
 
     // Load custom colors from config (support both "r,g,b,a" and "#RRGGBB" formats)
     std::vector<std::string> colors = Slic3r::GUI::wxGetApp().app_config->get_custom_color_from_config();
+    std::set<unsigned long> present_rgb;
+    auto rgb_key = [](const wxColour& c) -> unsigned long {
+        return ((unsigned long)c.Red() << 16) | ((unsigned long)c.Green() << 8) | (unsigned long)c.Blue();
+    };
     for (int i = 0; i < (int)colors.size(); i++) {
         wxColour c;
         if (colors[i].find(',') != std::string::npos)
             c = string_to_wxColor(colors[i]);
         else
             c = wxColour(colors[i]);
-        if (c.IsOk())
+        if (c.IsOk()) {
             data.SetCustomColour(i, c);
+            present_rgb.insert(rgb_key(c));
+        }
+    }
+
+    // 3DPrintForge: surface the user's real spool colours as ready-to-pick custom
+    // swatches in the empty slots, so they can colour a filament to match a spool
+    // they actually own. Only when a dashboard URL is configured (avoids a needless
+    // localhost probe), fetched synchronously once on open. These injected slots are
+    // NOT persisted back to the saved custom palette.
+    std::set<int> forge_slots;
+    {
+        Slic3r::AppConfig* cfg = Slic3r::GUI::wxGetApp().app_config;
+        const bool configured = cfg && (!cfg->get("forge_dashboard_url").empty() ||
+                                        !cfg->get("forge_server_url").empty());
+        int slot = (int)colors.size();
+        if (configured && slot < CUSTOM_COLOR_COUNT) {
+            Slic3r::ForgeCloudAgent agent;
+            agent.set_server_url(Slic3r::GUI::forge_dashboard_url());
+            for (const Slic3r::ForgeSpool& sp : agent.list_spools()) {
+                if (slot >= CUSTOM_COLOR_COUNT)
+                    break;
+                if (sp.color_hex.empty())
+                    continue;
+                const std::string hex = "#" + sp.color_hex;
+                wxColour c(wxString::FromUTF8(hex.c_str()));
+                if (!c.IsOk() || present_rgb.count(rgb_key(c)))
+                    continue;
+                data.SetCustomColour(slot, c);
+                present_rgb.insert(rgb_key(c));
+                forge_slots.insert(slot);
+                ++slot;
+            }
+        }
     }
 
     wxColourDialog dialog(parent, &data);
@@ -613,10 +653,13 @@ wxColourData show_sys_picker_dialog(wxWindow *parent, const wxColourData &clr_da
     if (dialog.ShowModal() == wxID_OK) {
         data = dialog.GetColourData();
 
-        // Save custom colors to config (use RGBA string format for consistency)
+        // Save custom colors to config (use RGBA string format for consistency).
+        // Skip the injected spool slots so the user's saved palette is not polluted.
         std::vector<std::string> colors;
         colors.resize(CUSTOM_COLOR_COUNT);
         for (int i = 0; i < CUSTOM_COLOR_COUNT; i++) {
+            if (forge_slots.count(i))
+                continue;
             wxColour custom_clr = data.GetCustomColour(i);
             if (custom_clr.IsOk())
                 colors[i] = color_to_string(custom_clr);
