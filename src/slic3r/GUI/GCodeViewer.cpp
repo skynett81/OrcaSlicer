@@ -4161,6 +4161,25 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
         ::sprintf(buf, "%.2f", ps.total_cost);
         imgui.text(buf);
 
+        // 3DPrintForge: consolidated multi-colour waste figure (flushed purge + prime tower)
+        // surfaced as a first-class number with share-of-total and estimated cost, so the
+        // impact of the waste-mode selector is immediately visible after slicing.
+        {
+            const double pf_waste_g = total_flushed_filament_g + total_wipe_tower_used_filament_g;
+            if (pf_waste_g > 0.0) {
+                const double pf_all_g = total_model_used_filament_g + total_support_used_filament_g + pf_waste_g;
+                const double pf_waste_pct  = pf_all_g > 0.0 ? (pf_waste_g / pf_all_g) * 100.0 : 0.0;
+                const double pf_waste_cost = pf_all_g > 0.0 ? ps.total_cost * (pf_waste_g / pf_all_g) : 0.0;
+                const std::string pf_waste_weight = format_compact_weight((float)pf_waste_g, imperial_units);
+                ImGui::Dummy({ window_padding, window_padding });
+                ImGui::SameLine();
+                imgui.text(_u8L("Multi-colour waste") + ":");
+                ImGui::SameLine();
+                ::sprintf(buf, "%s  (%.0f%%)  ~%.2f", pf_waste_weight.c_str(), pf_waste_pct, pf_waste_cost);
+                imgui.text(buf);
+            }
+        }
+
         break;
     }
     default: { break; }
