@@ -17,6 +17,11 @@
 #include <wx/statbmp.h>
 #include <wx/mstream.h>
 #include <wx/image.h>
+#include <wx/filedlg.h>
+#include <wx/file.h>
+
+#include "Widgets/ProgressBar.hpp"
+#include "Widgets/Label.hpp"
 
 namespace Slic3r { namespace GUI {
 
@@ -106,13 +111,73 @@ void ForgeFleetPanel::build_ui()
 
     // ---- Center column: camera + printing progress ----
     auto* detail = new wxBoxSizer(wxVERTICAL);
-    detail->Add(make_title(_L("Camera")), 0, wxEXPAND);
+
+    // Camera title bar with a small toolbar (refresh / snapshot / open stream),
+    // mirroring the Bambu Device camera header's icon row.
+    auto* cam_title = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(-1, FromDIP(34)));
+    cam_title->SetBackgroundColour(wxColour(248, 248, 248));
+    auto* cam_ts = new wxBoxSizer(wxHORIZONTAL);
+    { auto* l = new wxStaticText(cam_title, wxID_ANY, _L("Camera"));
+      auto lf = l->GetFont(); lf.MakeBold(); l->SetFont(lf); l->SetForegroundColour(wxColour(107, 107, 107));
+      cam_ts->Add(l, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(12)); }
+    cam_ts->AddStretchSpacer(1);
+    auto add_cam_btn = [&](const wxString& label, std::function<void()> fn) {
+        auto* b = new wxButton(cam_title, wxID_ANY, label, wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+        b->Bind(wxEVT_BUTTON, [fn](wxCommandEvent&) { fn(); });
+        cam_ts->Add(b, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(6));
+    };
+    add_cam_btn(_L("Refresh"),  [this] { update_detail(); });
+    add_cam_btn(_L("Snapshot"), [this] { save_camera_snapshot(); });
+    add_cam_btn(_L("Open"),     [this] { if (!m_agent->server_url().empty()) wxLaunchDefaultBrowser(wxString::FromUTF8(m_agent->server_url())); });
+    cam_title->SetSizer(cam_ts);
+    detail->Add(cam_title, 0, wxEXPAND);
+
     m_camera = new wxStaticBitmap(this, wxID_ANY, wxBitmap());
     m_camera->SetMinSize(wxSize(FromDIP(240), FromDIP(320)));
     detail->Add(m_camera, 1, wxEXPAND | wxTOP, FromDIP(2));
+
+    // HMS / fault banner — a red strip shown only when the printer reports an
+    // error message (mirrors the Bambu Device error notification).
+    m_error_banner = new wxPanel(this, wxID_ANY);
+    m_error_banner->SetBackgroundColour(wxColour(0xC8, 0x37, 0x37));
+    { auto* es = new wxBoxSizer(wxHORIZONTAL);
+      m_error_text = new wxStaticText(m_error_banner, wxID_ANY, "");
+      m_error_text->SetForegroundColour(*wxWHITE);
+      es->Add(m_error_text, 1, wxALIGN_CENTER_VERTICAL | wxALL, FromDIP(6));
+      m_error_banner->SetSizer(es); }
+    m_error_banner->Hide();
+    detail->Add(m_error_banner, 0, wxEXPAND | wxTOP, FromDIP(4));
+
     detail->Add(make_title(_L("Printing progress")), 0, wxEXPAND | wxTOP, FromDIP(8));
-    m_detail_label = new wxStaticText(this, wxID_ANY, _L("Select a printer to see details."));
-    detail->Add(m_detail_label, 0, wxTOP | wxLEFT, FromDIP(6));
+
+    // Print-task card: job name, stage + percent, progress bar, layer/time/speed.
+    m_job_name = new wxStaticText(this, wxID_ANY, _L("Select a printer to see details."),
+                                  wxDefaultPosition, wxDefaultSize, wxST_ELLIPSIZE_END);
+    { auto jf = m_job_name->GetFont(); jf.MakeBold(); m_job_name->SetFont(jf); }
+    detail->Add(m_job_name, 0, wxTOP | wxLEFT | wxRIGHT, FromDIP(6));
+
+    auto* stage_row = new wxBoxSizer(wxHORIZONTAL);
+    m_stage_label = new wxStaticText(this, wxID_ANY, "");
+    m_stage_label->SetForegroundColour(wxColour(146, 146, 146));
+    m_progress_pct = new wxStaticText(this, wxID_ANY, "");
+    { auto pf = m_progress_pct->GetFont(); pf.MakeBold(); m_progress_pct->SetFont(pf); }
+    stage_row->Add(m_stage_label, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(6));
+    stage_row->Add(m_progress_pct, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(8));
+    detail->Add(stage_row, 0, wxEXPAND | wxTOP, FromDIP(4));
+
+    m_progress_bar = new ProgressBar(this, wxID_ANY, 100);
+    m_progress_bar->SetHeight(FromDIP(8));
+    m_progress_bar->SetProgressForedColour(wxColour(0x00, 0x97, 0x89)); // brand teal
+    m_progress_bar->SetMinSize(wxSize(FromDIP(240), FromDIP(8)));
+    detail->Add(m_progress_bar, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, FromDIP(6));
+
+    m_layer_time = new wxStaticText(this, wxID_ANY, "");
+    m_layer_time->SetForegroundColour(wxColour(146, 146, 146));
+    detail->Add(m_layer_time, 0, wxTOP | wxLEFT, FromDIP(4));
+
+    // Kept for misc one-off status text (errors before a printer is picked).
+    m_detail_label = new wxStaticText(this, wxID_ANY, "");
+    detail->Add(m_detail_label, 0, wxTOP | wxLEFT, FromDIP(4));
 
     // Filament slots — a color swatch + material per toolhead, mirroring the
     // Snapmaker Orca device layout. Clicking a slot selects (picks) that tool.
@@ -143,6 +208,20 @@ void ForgeFleetPanel::build_ui()
             slot->Add(m_slot_lbl[i], 0, wxALIGN_CENTER);
             fr->Add(slot, 0, wxRIGHT, 8);
         }
+        // Load / Unload / Change filament for the active toolhead (M701/M702/M600).
+        fr->AddSpacer(FromDIP(6));
+        m_btn_load   = new wxButton(m_filament_row, wxID_ANY, _L("Load"),   wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+        m_btn_unload = new wxButton(m_filament_row, wxID_ANY, _L("Unload"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+        m_btn_change = new wxButton(m_filament_row, wxID_ANY, _L("Change"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+        auto fil = [this](const char* op) {
+            if (!m_selected_printer_id.empty()) m_agent->control_filament(m_selected_printer_id, op, -1);
+        };
+        m_btn_load  ->Bind(wxEVT_BUTTON, [fil](wxCommandEvent&) { fil("load"); });
+        m_btn_unload->Bind(wxEVT_BUTTON, [fil](wxCommandEvent&) { fil("unload"); });
+        m_btn_change->Bind(wxEVT_BUTTON, [fil](wxCommandEvent&) { fil("change"); });
+        fr->Add(m_btn_load,   0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 4);
+        fr->Add(m_btn_unload, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 4);
+        fr->Add(m_btn_change, 0, wxALIGN_CENTER_VERTICAL);
         m_filament_row->SetSizer(fr);
     }
     m_filament_row->Hide();
@@ -245,13 +324,38 @@ void ForgeFleetPanel::on_select(wxListEvent& evt)
     long idx = evt.GetIndex();
     m_selected_printer_id = (idx >= 0 && idx < (long)m_printers.size())
                             ? m_printers[idx].id : std::string();
+
+    // One-time correction: GTK auto-selects row 0 when the list is populated,
+    // which may land on a non-controllable (e.g. Bambu) printer. The very first
+    // selection is always that programmatic one — if it picked a non-gcode
+    // printer while a gcode one exists, redirect to the controllable printer so
+    // the Control panel + filament row are visible. Real user clicks (every
+    // selection after this first one) are always respected.
+    if (!m_corrected_initial) {
+        m_corrected_initial = true;
+        auto is_gcode = [](const ForgePrinter& p) { return p.vendor == "moonraker" || p.vendor == "klipper"; };
+        if (idx >= 0 && idx < (long)m_printers.size() && !is_gcode(m_printers[idx])) {
+            for (size_t i = 0; i < m_printers.size(); ++i)
+                if (is_gcode(m_printers[i])) {
+                    m_selected_printer_id = m_printers[i].id;
+                    if (m_list) m_list->SetItemState((long) i, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED,
+                                                     wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
+                    break;
+                }
+        }
+    }
     update_detail();
 }
 
 void ForgeFleetPanel::update_detail()
 {
-    if (m_selected_printer_id.empty() || !m_detail_label) {
-        if (m_detail_label) m_detail_label->SetLabel(_L("Select a printer to see details."));
+    if (m_selected_printer_id.empty() || !m_job_name) {
+        if (m_job_name)     m_job_name->SetLabel(_L("Select a printer to see details."));
+        if (m_stage_label)  m_stage_label->SetLabel("");
+        if (m_progress_pct) m_progress_pct->SetLabel("");
+        if (m_layer_time)   m_layer_time->SetLabel("");
+        if (m_progress_bar) m_progress_bar->SetProgress(0);
+        if (m_detail_label) m_detail_label->SetLabel("");
         if (m_camera) m_camera->SetBitmap(wxBitmap());
         return;
     }
@@ -268,37 +372,58 @@ void ForgeFleetPanel::update_detail()
         Layout();
     }
 
-    wxString info = wxString::FromUTF8(p->name);
-    if (!p->vendor.empty()) info += " · " + wxString::FromUTF8(p->vendor);
-    wxString st = p->status.empty() ? wxString::FromUTF8(p->state) : wxString::FromUTF8(p->status);
-    if (!st.empty()) info += "\n" + _L("Status: ") + st;
-    if (!p->current_job.empty()) info += "\n" + _L("Job: ") + wxString::FromUTF8(p->current_job);
-    if (p->progress_pct > 0) info += wxString::Format("  (%d%%)", p->progress_pct);
-
-    // Live runtime telemetry (temps/progress) — best-effort, read-only.
+    // Live runtime telemetry — best-effort, read-only.
     ForgeLiveState ls = m_agent->get_printer_state(m_selected_printer_id);
-    if (ls.ok) {
-        if (ls.progress_pct >= 0) info += "\n" + _L("Progress: ") + wxString::Format("%d%%", ls.progress_pct);
-        if (!ls.tools.empty()) {
-            // Per-toolhead temps + loaded filament (e.g. Snapmaker U1).
-            for (int i = 0; i < (int)ls.tools.size(); ++i) {
-                const ForgeToolState& t = ls.tools[i];
-                wxString line = wxString::Format("\nT%d%s: ", i + 1, (i == ls.active_tool) ? " *" : "");
-                if (t.temp >= 0)   line += wxString::Format("%.0f", t.temp);
-                if (t.target > 0)  line += wxString::Format("/%.0f", t.target);
-                line += "°C";
-                if (!t.filament.empty()) line += "  " + wxString::FromUTF8(t.filament);
-                info += line;
-            }
-        } else if (ls.nozzle_temp >= 0) {
-            info += wxString::Format("\n" + _L("Nozzle %.0f°C"), ls.nozzle_temp);
-        }
-        wxString temps;
-        if (ls.bed_temp >= 0)     temps += wxString::Format(_L("Bed %.0f°C  "), ls.bed_temp);
-        if (ls.chamber_temp >= 0) temps += wxString::Format(_L("Chamber %.0f°C"), ls.chamber_temp);
-        if (!temps.empty()) info += "\n" + temps;
+
+    auto fmt_dur = [](int secs) -> wxString {
+        if (secs < 0) return wxString();
+        int h = secs / 3600, m = (secs % 3600) / 60, s = secs % 60;
+        if (h > 0) return wxString::Format("%dh %dm", h, m);
+        if (m > 0) return wxString::Format("%dm %ds", m, s);
+        return wxString::Format("%ds", s);
+    };
+
+    // --- Print-task card ---
+    // Job name: prefer the live sub-task, strip extension; fall back to roster.
+    wxString job = ls.ok && !ls.job_name.empty() ? wxString::FromUTF8(ls.job_name)
+                                                 : wxString::FromUTF8(p->current_job);
+    { int dot = job.rfind('.'); if (dot != (int)wxString::npos && dot > (int)job.size() - 8) job = job.Left(dot); }
+    if (job.empty()) job = wxString::FromUTF8(p->name);
+    m_job_name->SetLabel(job);
+
+    wxString stage = ls.ok && !ls.stage_label.empty() ? wxString::FromUTF8(ls.stage_label)
+                   : ls.ok && !ls.state.empty()       ? wxString::FromUTF8(ls.state)
+                   : (p->status.empty() ? wxString::FromUTF8(p->state) : wxString::FromUTF8(p->status));
+    m_stage_label->SetLabel(stage);
+
+    int pct = ls.ok && ls.progress_pct >= 0 ? ls.progress_pct : p->progress_pct;
+    m_progress_pct->SetLabel(pct >= 0 ? wxString::Format("%d%%", pct) : wxString());
+    if (m_progress_bar) m_progress_bar->SetProgress(pct >= 0 ? pct : 0);
+
+    // Layer x/y · time left · speed · filament used
+    wxString meta;
+    auto sep = [&meta]() { if (!meta.empty()) meta += "   ·   "; };
+    if (ls.ok && ls.layer_total > 0) { sep(); meta += wxString::Format(_L("Layer %d/%d"), ls.layer_cur, ls.layer_total); }
+    if (ls.ok && ls.time_total > 0 && ls.time_elapsed >= 0) {
+        wxString left = fmt_dur(ls.time_total - ls.time_elapsed);
+        if (!left.empty()) { sep(); meta += left + " " + _L("left"); }
     }
-    m_detail_label->SetLabel(info);
+    if (ls.ok && ls.speed_pct > 0)        { sep(); meta += wxString::Format("%d%%", ls.speed_pct); }
+    if (ls.ok && ls.filament_used_mm > 0) { sep(); meta += wxString::Format(_L("%.1f m"), ls.filament_used_mm / 1000.0); }
+    m_layer_time->SetLabel(meta);
+
+    // Compact temps line (kept in the small detail label).
+    wxString temps;
+    if (ls.ok && ls.bed_temp >= 0)     temps += wxString::Format(_L("Bed %.0f°C  "), ls.bed_temp);
+    if (ls.ok && ls.chamber_temp >= 0) temps += wxString::Format(_L("Chamber %.0f°C"), ls.chamber_temp);
+    m_detail_label->SetLabel(temps);
+
+    // HMS / fault banner.
+    if (m_error_banner) {
+        const bool has_err = ls.ok && !ls.error_msg.empty();
+        if (has_err) m_error_text->SetLabel(wxString::FromUTF8(ls.error_msg));
+        if (m_error_banner->IsShown() != has_err) { m_error_banner->Show(has_err); Layout(); }
+    }
 
     // Push live telemetry into the native Control widgets (temps, tools).
     if (m_control && gcode_capable && ls.ok) m_control->update_state(ls);
@@ -307,7 +432,9 @@ void ForgeFleetPanel::update_detail()
     // Shown only for multi-tool printers; the active tool's label is bold.
     if (m_filament_row) {
         const int ntools = (int)ls.tools.size();
-        const bool show_slots = ntools > 1;
+        // Row (with Load/Unload/Change) is available for any gcode printer;
+        // individual colour swatches show per detected toolhead.
+        const bool show_slots = gcode_capable;
         for (int i = 0; i < 4; ++i) {
             if (!m_slot[i] || !m_slot_lbl[i]) continue;
             const bool has = i < ntools;
@@ -334,6 +461,7 @@ void ForgeFleetPanel::update_detail()
 
     // Pull a fresh camera frame (JPEG) and show it; gracefully blank if none.
     std::string jpeg = m_agent->get_camera_frame(m_selected_printer_id);
+    m_last_frame = jpeg;   // cache for the Snapshot button
     if (!jpeg.empty()) {
         wxMemoryInputStream mis(jpeg.data(), jpeg.size());
         wxImage img;
@@ -347,6 +475,21 @@ void ForgeFleetPanel::update_detail()
         m_camera->SetBitmap(wxBitmap());
     }
     Layout();
+}
+
+void ForgeFleetPanel::save_camera_snapshot()
+{
+    if (m_last_frame.empty()) {
+        wxMessageBox(_L("No camera frame available yet."), _L("Snapshot"), wxOK | wxICON_INFORMATION, this);
+        return;
+    }
+    wxString def = wxString::Format("%s_snapshot.jpg",
+                                    m_selected_printer_id.empty() ? "printer" : wxString::FromUTF8(m_selected_printer_id));
+    wxFileDialog dlg(this, _L("Save camera snapshot"), "", def,
+                     "JPEG image (*.jpg)|*.jpg", wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
+    if (dlg.ShowModal() != wxID_OK) return;
+    wxFile f(dlg.GetPath(), wxFile::write);
+    if (f.IsOpened()) f.Write(m_last_frame.data(), m_last_frame.size());
 }
 
 void ForgeFleetPanel::on_show()

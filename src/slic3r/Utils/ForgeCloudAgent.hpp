@@ -40,6 +40,17 @@ struct ForgeLiveState {
     std::string state;
     int         active_tool  = -1;          // index of the active toolhead
     std::vector<ForgeToolState> tools;      // per-toolhead (empty = single nozzle)
+
+    // Print-job telemetry (for the print-task card). -1 / empty when unknown.
+    int         layer_cur    = -1;
+    int         layer_total  = -1;
+    int         time_elapsed = -1;          // seconds since job start
+    int         time_total   = -1;          // estimated total seconds
+    int         speed_pct    = -1;          // print-speed magnitude
+    double      filament_used_mm = -1;
+    std::string job_name;                   // current sub-task / file name
+    std::string stage_label;                // human stage ("Printing", "Idle"…)
+    std::string error_msg;                  // non-empty => fault/HMS banner
 };
 
 // Authentication / connection state to 3DPrintForge Server.
@@ -103,6 +114,10 @@ public:
     bool control_fan(const std::string& printer_id, int percent);
     bool control_light(const std::string& printer_id, bool on);
     bool control_speed(const std::string& printer_id, int percent);
+
+    // Load / unload / change filament. action = "load"|"unload"|"change";
+    // tool < 0 targets the active extruder. POST /api/printers/{id}/control.
+    bool control_filament(const std::string& printer_id, const std::string& action, int tool = -1);
 
     // Set a target temperature. heater = "bed" or "nozzle"; tool < 0 means the
     // single/active nozzle (no tool index sent). Klipper/Moonraker only.

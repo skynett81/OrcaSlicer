@@ -237,6 +237,20 @@ ForgeLiveState ForgeCloudAgent::get_printer_state(const std::string& printer_id)
         for (const char* k : {"gcode_state", "state", "print_status"})
             if (root.contains(k) && root[k].is_string()) { ls.state = root[k].get<std::string>(); break; }
 
+        // Print-job telemetry for the task card.
+        ls.layer_cur        = static_cast<int>(num(root, {"layer_num"}));
+        ls.layer_total      = static_cast<int>(num(root, {"total_layer_num"}));
+        ls.time_elapsed     = static_cast<int>(num(root, {"print_duration_seconds"}));
+        ls.time_total       = static_cast<int>(num(root, {"total_duration_seconds"}));
+        ls.speed_pct        = static_cast<int>(num(root, {"spd_mag", "spd_lvl"}));
+        ls.filament_used_mm = num(root, {"filament_used_mm"});
+        for (const char* k : {"subtask_name", "gcode_file", "filename"})
+            if (root.contains(k) && root[k].is_string()) { ls.job_name = root[k].get<std::string>(); break; }
+        for (const char* k : {"_sm_state_label", "_sm_state_name", "stage"})
+            if (root.contains(k) && root[k].is_string()) { ls.stage_label = root[k].get<std::string>(); break; }
+        for (const char* k : {"print_error_msg", "error_message", "error"})
+            if (root.contains(k) && root[k].is_string()) { ls.error_msg = root[k].get<std::string>(); break; }
+
         // Per-tool (Snapmaker U1-style): tool 0 = nozzle_temper, tools 1..N =
         // _extra_extruders[] (ordered T1,T2,T3); filament from _sm_filament[].
         if (root.contains("_extra_extruders") && root["_extra_extruders"].is_array()) {
@@ -308,6 +322,17 @@ bool ForgeCloudAgent::control_tool(const std::string& printer_id, int tool_index
 {
     auto cli = make_client(m_server_url);
     json body = { { "action", "select_tool" }, { "tool", tool_index } };
+    auto res = cli->Post("/api/printers/" + printer_id + "/control",
+                         auth_headers(m_auth.session_token), body.dump(), "application/json");
+    if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);
+    return res && res->status < 400;
+}
+
+bool ForgeCloudAgent::control_filament(const std::string& printer_id, const std::string& action, int tool)
+{
+    auto cli = make_client(m_server_url);
+    json body = { { "action", "filament" }, { "op", action } };
+    if (tool >= 0) body["tool"] = tool;
     auto res = cli->Post("/api/printers/" + printer_id + "/control",
                          auth_headers(m_auth.session_token), body.dump(), "application/json");
     if (res && res->status >= 400) m_auth.last_error = "HTTP " + std::to_string(res->status);

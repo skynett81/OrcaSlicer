@@ -14,6 +14,7 @@ class wxButton;
 class wxTextCtrl;
 class wxStaticBitmap;
 class wxListEvent;
+class ProgressBar;
 
 namespace Slic3r { namespace GUI {
 
@@ -48,6 +49,7 @@ private:
     void on_select(wxListEvent& evt);
     void update_detail();   // refresh the selected printer's info + camera
     void send_control(const std::string& action); // pause/resume/stop selected
+    void save_camera_snapshot();   // write the latest camera frame to a file
 
     std::unique_ptr<ForgeCloudAgent> m_agent;
 
@@ -67,9 +69,24 @@ private:
     wxPanel*      m_filament_row    = nullptr;  // filament slots (multi-tool printers)
     wxPanel*      m_slot[4]         = { nullptr, nullptr, nullptr, nullptr }; // color swatch per tool
     wxStaticText* m_slot_lbl[4]     = { nullptr, nullptr, nullptr, nullptr }; // T#/material per tool
+
+    // Print-task card (mirrors Bambu Device's PrintingTaskPanel).
+    wxStaticText* m_job_name        = nullptr;  // current sub-task / file name
+    wxStaticText* m_stage_label     = nullptr;  // print stage ("Printing"…)
+    wxStaticText* m_progress_pct    = nullptr;  // big "NN%"
+    ProgressBar*  m_progress_bar    = nullptr;  // styled progress bar
+    wxStaticText* m_layer_time      = nullptr;  // "Layer x/y · time left · speed · filament"
+    wxPanel*      m_error_banner    = nullptr;  // red HMS/fault banner (hidden when no error)
+    wxStaticText* m_error_text      = nullptr;
+    wxButton*     m_btn_load        = nullptr;  // filament load
+    wxButton*     m_btn_unload      = nullptr;  // filament unload
+    wxButton*     m_btn_change      = nullptr;  // filament change (M600)
+
     wxTimer       m_poll_timer;
 
     std::string   m_selected_printer_id;
+    std::string   m_last_frame;    // most recent camera JPEG (for Snapshot)
+    bool          m_corrected_initial = false; // one-time auto-select correction
     std::vector<ForgePrinter> m_printers;
 };
 
