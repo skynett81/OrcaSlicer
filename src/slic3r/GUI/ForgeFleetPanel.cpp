@@ -2,6 +2,9 @@
 #include "ForgeControlPanel.hpp"
 #include "I18N.hpp"
 #include "GUI_App.hpp"
+#include "MainFrame.hpp"
+
+#include <wx/utils.h>
 
 #include "libslic3r/AppConfig.hpp"
 
@@ -177,7 +180,27 @@ void ForgeFleetPanel::build_ui()
 
     // ---- Right column: "Control" title bar + the native control widgets ----
     auto* rightcol = new wxBoxSizer(wxVERTICAL);
-    rightcol->Add(make_title(_L("Control")), 0, wxEXPAND);
+
+    // Control title bar with native-style action buttons (Printer Parts /
+    // Print Options / Calibration), mirroring the Bambu Device control header.
+    auto* ctrl_title = new wxPanel(this, wxID_ANY, wxDefaultPosition, wxSize(-1, FromDIP(34)));
+    ctrl_title->SetBackgroundColour(wxColour(248, 248, 248));
+    auto* cts = new wxBoxSizer(wxHORIZONTAL);
+    auto* clbl = new wxStaticText(ctrl_title, wxID_ANY, _L("Control"));
+    { auto lf = clbl->GetFont(); lf.MakeBold(); clbl->SetFont(lf); clbl->SetForegroundColour(wxColour(107, 107, 107)); }
+    cts->Add(clbl, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(12));
+    cts->AddStretchSpacer(1);
+    auto add_hdr_btn = [&](const wxString& label, std::function<void()> fn) {
+        auto* b = new wxButton(ctrl_title, wxID_ANY, label, wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT);
+        b->Bind(wxEVT_BUTTON, [fn](wxCommandEvent&) { fn(); });
+        cts->Add(b, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(6));
+    };
+    add_hdr_btn(_L("Printer Parts"), [this] { if (!m_agent->server_url().empty()) wxLaunchDefaultBrowser(wxString::FromUTF8(m_agent->server_url())); });
+    add_hdr_btn(_L("Print Options"), [this] { if (!m_agent->server_url().empty()) wxLaunchDefaultBrowser(wxString::FromUTF8(m_agent->server_url())); });
+    add_hdr_btn(_L("Calibration"),   [] { if (wxGetApp().mainframe) wxGetApp().mainframe->select_tab(size_t(MainFrame::tpCalibration)); });
+    ctrl_title->SetSizer(cts);
+
+    rightcol->Add(ctrl_title, 0, wxEXPAND);
     rightcol->Add(m_control, 1, wxEXPAND | wxTOP, FromDIP(2));
     body->Add(rightcol, 0, wxEXPAND);
 
@@ -328,6 +351,20 @@ void ForgeFleetPanel::update_detail()
 void ForgeFleetPanel::on_show()
 {
     refresh_printer_list();
+
+    // Auto-select a printer so the camera + Control panel populate instead of
+    // showing an empty view. Prefer a gcode-capable (Moonraker/Klipper) printer
+    // so the control widgets light up.
+    if (m_selected_printer_id.empty() && !m_printers.empty()) {
+        long idx = 0;
+        for (size_t i = 0; i < m_printers.size(); ++i)
+            if (m_printers[i].vendor == "moonraker" || m_printers[i].vendor == "klipper") { idx = (long) i; break; }
+        m_selected_printer_id = m_printers[idx].id;
+        if (m_list) m_list->SetItemState(idx, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED,
+                                         wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
+        update_detail();
+    }
+
     if (!m_poll_timer.IsRunning())
         m_poll_timer.Start(POLL_INTERVAL_MS);
 }

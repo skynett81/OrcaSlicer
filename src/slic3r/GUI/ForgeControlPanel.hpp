@@ -13,6 +13,7 @@ class Button;
 class ImageSwitchButton;
 class FanSwitchButton;
 class StaticBox;
+class SwitchBoard;
 
 namespace Slic3r { namespace GUI {
 
@@ -71,6 +72,7 @@ private:
     ImageSwitchButton* m_speed        = nullptr;
     FanSwitchButton*   m_fan          = nullptr;
     StaticBox*         m_fan_panel    = nullptr;
+    SwitchBoard*       m_nozzle_switch= nullptr;   // Left/Right toggle (dual nozzle)
     wxBoxSizer*        m_tool_sizer   = nullptr;
     Button*            m_tool_btn[8]  = { nullptr };
 };

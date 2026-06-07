@@ -8,6 +8,7 @@
 #include "Widgets/StaticBox.hpp"
 #include "Widgets/StateColor.hpp"
 #include "Widgets/Label.hpp"
+#include "Widgets/SwitchButton.hpp"
 
 #include <wx/sizer.h>
 #include <wx/stattext.h>
@@ -53,8 +54,9 @@ void ForgeControlPanel::build()
     // ---- temperature + axis + extruder group (rounded StaticBox) ----
     auto* box = new StaticBox(this);
     box->SetBackgroundColor(StateColor(std::make_pair(*wxWHITE, (int) StateColor::Normal)));
-    box->SetBorderColor(StateColor(std::make_pair(COL_LINE, (int) StateColor::Normal)));
-    box->SetCornerRadius(5);
+    box->SetBorderColor(StateColor(std::make_pair(COL_N2, (int) StateColor::Normal)));
+    box->SetBorderWidth(FromDIP(1));
+    box->SetCornerRadius(FromDIP(5));
 
     auto* content = new wxBoxSizer(wxHORIZONTAL);
 
@@ -140,8 +142,17 @@ void ForgeControlPanel::build()
 
     content->Add(make_divider(), 0, wxEXPAND);
 
-    // -- extruder column: tool selector (multi-tool) + extrude / retract --
+    // -- extruder column: Left/Right toggle + tool selector + extrude/retract --
     auto* extr = new wxBoxSizer(wxVERTICAL);
+
+    // Left/Right nozzle toggle (matches the Bambu Device dual-nozzle switch);
+    // shown for <=2 nozzles, replaced by T1..N buttons for >2 (e.g. U1).
+    m_nozzle_switch = new SwitchBoard(box, _L("Left"), _L("Right"), wxSize(FromDIP(126), FromDIP(26)));
+    m_nozzle_switch->Bind(wxCUSTOMEVT_SWITCH_POS, [this](wxCommandEvent& e) {
+        if (m_cb.select_tool) m_cb.select_tool(e.GetInt() == 1 ? 0 : 1); // 1=left=T0, 0=right=T1
+    });
+    extr->Add(m_nozzle_switch, 0, wxALIGN_CENTER | wxBOTTOM, FromDIP(6));
+
     m_tool_sizer = new wxBoxSizer(wxHORIZONTAL);
     for (int t = 0; t < 8; ++t) {
         auto* b = new Button(box, wxString::Format("T%d", t + 1));
@@ -308,9 +319,13 @@ void ForgeControlPanel::set_tool_count(int n)
 {
     if (n == m_tool_count) return;
     m_tool_count = n;
-    const bool multi = n > 1;
+    const bool many = n > 2;                 // 3+ tools (e.g. Snapmaker U1)
+    if (m_nozzle_switch) {
+        m_nozzle_switch->Show(!many);        // Left/Right for single/dual nozzle
+        m_nozzle_switch->Enable(n >= 2);
+    }
     for (int t = 0; t < 8; ++t)
-        if (m_tool_btn[t]) m_tool_btn[t]->Show(multi && t < n);
+        if (m_tool_btn[t]) m_tool_btn[t]->Show(many && t < n);
     Layout();
 }
 
