@@ -362,9 +362,7 @@ public:
     PrintInstances &instances() { return m_instances; }
 
     // Mixed-color / "Full Spectrum" (ported from Snapmaker Orca): per-object
-    // copy of the mixed-filament manager + the Local-Z dithering plan.
-    const MixedFilamentManager& mixed_filament_manager() const { return m_mixed_filament_mgr; }
-    MixedFilamentManager&       mixed_filament_manager()       { return m_mixed_filament_mgr; }
+    // Local-Z dithering plan (the manager itself lives on Print).
     const std::vector<LocalZInterval>& local_z_intervals()     const { return m_local_z_intervals; }
     const std::vector<SubLayerPlan>&   local_z_sublayer_plan() const { return m_local_z_sublayer_plan; }
     void set_local_z_plan(std::vector<LocalZInterval> intervals, std::vector<SubLayerPlan> sublayers)
@@ -606,8 +604,7 @@ private:
     SlicingParameters                       m_slicing_params;
     LayerPtrs                               m_layers;
     SupportLayerPtrs                        m_support_layers;
-    // Mixed-color / "Full Spectrum" (ported from Snapmaker Orca).
-    MixedFilamentManager                    m_mixed_filament_mgr;
+    // Mixed-color / "Full Spectrum" Local-Z plan (ported from Snapmaker Orca).
     std::vector<LocalZInterval>             m_local_z_intervals;
     std::vector<SubLayerPlan>               m_local_z_sublayer_plan;
     // BBS
@@ -999,6 +996,9 @@ public:
     void                auto_assign_extruders(ModelObject* model_object) const;
 
     const PrintConfig&          config() const { return m_config; }
+    // Mixed-color / "Full Spectrum" virtual filaments (ported from Snapmaker Orca).
+    const MixedFilamentManager& mixed_filament_manager() const { return m_mixed_filament_mgr; }
+    MixedFilamentManager&       mixed_filament_manager()       { return m_mixed_filament_mgr; }
     const PrintObjectConfig&    default_object_config() const { return m_default_object_config; }
     const PrintRegionConfig& default_region_config() const { return m_default_region_config; }
     ConstPrintObjectPtrsAdaptor objects() const { return ConstPrintObjectPtrsAdaptor(&m_objects); }
@@ -1187,6 +1187,8 @@ private:
     Polygons            first_layer_islands() const;
 
     PrintConfig                             m_config;
+    // Mixed-color / "Full Spectrum" virtual filaments (ported from Snapmaker Orca).
+    MixedFilamentManager                    m_mixed_filament_mgr;
     PrintObjectConfig                       m_default_object_config;
     PrintRegionConfig                       m_default_region_config;
     PrintObjectPtrs                         m_objects;

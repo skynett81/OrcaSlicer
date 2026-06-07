@@ -891,28 +891,37 @@ static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<
     // body never runs, segmentation is untouched). Advanced modes (Local-Z
     // subdivision, same-layer pointillisme, gradient) are not handled here yet.
     {
-        const MixedFilamentManager &mixed_mgr = print_object.mixed_filament_manager();
+        const MixedFilamentManager &mixed_mgr = print_object.print()->mixed_filament_manager();
         if (mixed_mgr.enabled_count() > 0) {
             const size_t num_physical = print_object.print()->config().filament_diameter.size();
+            // Our MM segmentation uses num_facets_states = num_physical + 1 channels
+            // (channel 0 = unpainted default, channels 1..num_physical = physical
+            // filaments). Virtual mixed filaments, when painted, appear as extra
+            // channels with index > num_physical. We ONLY ever touch those extra
+            // channels, never indices [0, num_physical] — so normal multi-material
+            // is provably untouched regardless of the internal channel convention.
+            const size_t first_virtual_channel = num_physical + 1;
             for (size_t layer_id = 0; layer_id < segmentation.size(); ++layer_id) {
                 std::vector<ExPolygons> &channels = segmentation[layer_id];
-                if (channels.size() <= num_physical)
+                if (channels.size() <= first_virtual_channel)
                     continue;   // no virtual channels on this layer
                 throw_on_cancel();
                 const Layer *layer = print_object.get_layer(int(layer_id));
                 const float  print_z      = layer ? float(layer->print_z) : 0.f;
                 const float  layer_height = layer ? float(layer->height)   : 0.f;
-                for (size_t ch = num_physical; ch < channels.size(); ++ch) {
+                for (size_t ch = first_virtual_channel; ch < channels.size(); ++ch) {
                     if (channels[ch].empty())
                         continue;
-                    const unsigned int virtual_id = unsigned(ch) + 1; // channel idx -> 1-based filament id
-                    const unsigned int physical   = mixed_mgr.resolve(virtual_id, num_physical,
-                                                                      int(layer_id), print_z, layer_height);
-                    const size_t dst = (physical >= 1 && physical <= num_physical) ? size_t(physical - 1) : 0;
-                    if (dst < num_physical)
-                        append(channels[dst], std::move(channels[ch]));
+                    // channel index == 1-based filament id (channel 0 is the default).
+                    const unsigned int virtual_id = unsigned(ch);
+                    const unsigned int physical    = mixed_mgr.resolve(virtual_id, num_physical,
+                                                                       int(layer_id), print_z, layer_height);
+                    // Merge the painted virtual region into the resolved physical
+                    // filament's channel (channel index == 1-based filament id).
+                    if (physical >= 1 && physical <= num_physical)
+                        append(channels[physical], std::move(channels[ch]));
                 }
-                channels.resize(num_physical);   // collapse to physical-only
+                channels.resize(first_virtual_channel);   // drop virtual channels
             }
         }
     }

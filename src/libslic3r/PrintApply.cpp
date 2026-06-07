@@ -1656,6 +1656,25 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         m_full_print_config = std::move(new_full_config);
     }
 
+    // Mixed-color / "Full Spectrum" (ported from Snapmaker Orca): (re)build the
+    // virtual mixed-filament list from physical filament colours + the user's
+    // serialized custom definitions, so the slicing pipeline can resolve virtual
+    // filament IDs. With no custom definitions and auto-generate off (the default),
+    // the manager stays empty -> enabled_count()==0 -> slicing is a strict no-op.
+    {
+        const size_t num_physical = m_config.filament_diameter.size();
+        std::vector<std::string> physical_filament_colors = m_config.filament_colour.values;
+        physical_filament_colors.resize(num_physical, "#26A69A");
+        m_mixed_filament_mgr.clear_custom_entries();
+        m_mixed_filament_mgr.auto_generate(physical_filament_colors);
+        m_mixed_filament_mgr.load_custom_entries(m_config.mixed_filament_definitions.value, physical_filament_colors);
+        m_mixed_filament_mgr.apply_gradient_settings(
+            m_config.mixed_filament_gradient_mode.value ? 1 : 0,
+            float(m_config.mixed_filament_height_lower_bound.value),
+            float(m_config.mixed_filament_height_upper_bound.value),
+            m_config.mixed_filament_advanced_dithering.value);
+    }
+
     // All regions now have distinct settings.
     // Check whether applying the new region config defaults we would get different regions,
     // update regions or create regions from scratch.
