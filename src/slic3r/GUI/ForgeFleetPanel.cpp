@@ -20,8 +20,12 @@
 #include <wx/filedlg.h>
 #include <wx/file.h>
 
+#include <cctype>
+
 #include "Widgets/ProgressBar.hpp"
 #include "Widgets/Label.hpp"
+#include "Widgets/StepCtrl.hpp"
+#include "Widgets/StateColor.hpp"
 
 namespace Slic3r { namespace GUI {
 
@@ -174,6 +178,17 @@ void ForgeFleetPanel::build_ui()
     m_layer_time = new wxStaticText(this, wxID_ANY, "");
     m_layer_time->SetForegroundColour(wxColour(146, 146, 146));
     detail->Add(m_layer_time, 0, wxTOP | wxLEFT, FromDIP(4));
+
+    // Generic print-stage flow (analog of Bambu Device's calibration step
+    // indicator): a checkmarked step list driven by gcode_state/progress/temps.
+    m_stage_steps = new StepIndicator(this, wxID_ANY);
+    m_stage_steps->SetBackgroundColor(StateColor(std::make_pair(GetBackgroundColour(), (int) StateColor::Normal)));
+    m_stage_steps->SetFont(::Label::Body_12);
+    for (const wxString& s : { _L("Prepare"), _L("Heating"), _L("Printing"), _L("Finishing"), _L("Done") })
+        m_stage_steps->AppendItem(s);
+    m_stage_steps->SetMinSize(wxSize(FromDIP(220), FromDIP(150)));
+    m_stage_steps->Hide();
+    detail->Add(m_stage_steps, 0, wxTOP | wxLEFT, FromDIP(6));
 
     // Kept for misc one-off status text (errors before a printer is picked).
     m_detail_label = new wxStaticText(this, wxID_ANY, "");
@@ -355,6 +370,7 @@ void ForgeFleetPanel::update_detail()
         if (m_progress_pct) m_progress_pct->SetLabel("");
         if (m_layer_time)   m_layer_time->SetLabel("");
         if (m_progress_bar) m_progress_bar->SetProgress(0);
+        if (m_stage_steps && m_stage_steps->IsShown()) m_stage_steps->Hide();
         if (m_detail_label) m_detail_label->SetLabel("");
         if (m_camera) m_camera->SetBitmap(wxBitmap());
         return;
@@ -411,6 +427,28 @@ void ForgeFleetPanel::update_detail()
     if (ls.ok && ls.speed_pct > 0)        { sep(); meta += wxString::Format("%d%%", ls.speed_pct); }
     if (ls.ok && ls.filament_used_mm > 0) { sep(); meta += wxString::Format(_L("%.1f m"), ls.filament_used_mm / 1000.0); }
     m_layer_time->SetLabel(meta);
+
+    // Generic print-stage step flow (Prepare → Heating → Printing → Finishing →
+    // Done), derived from gcode_state + progress + heater deltas. Hidden when the
+    // printer is plain idle with no job context.
+    if (m_stage_steps) {
+        std::string st = ls.ok ? ls.state : std::string();
+        for (char& c : st) c = (char) ::toupper((unsigned char) c);
+        const int prog = ls.ok && ls.progress_pct >= 0 ? ls.progress_pct : p->progress_pct;
+        bool heating = false;
+        if (ls.ok && prog <= 0)
+            for (const auto& t : ls.tools)
+                if (t.target > 0 && t.temp >= 0 && t.temp < t.target - 3) { heating = true; break; }
+        int step = -1;
+        if (st == "PREPARE" || st == "PREPARING" || st == "SLICING" || st == "INIT") step = 0;
+        else if (heating)                                                             step = 1;
+        else if (prog >= 100 || st == "FINISH" || st == "COMPLETE" || st == "COMPLETED") step = 4;
+        else if (prog >= 98)                                                          step = 3;
+        else if (prog > 0 || st == "RUNNING" || st == "PRINTING" || st == "PAUSE" || st == "PAUSED") step = 2;
+        const bool show = step >= 0;
+        if (show) m_stage_steps->SelectItem(step);
+        if (m_stage_steps->IsShown() != show) { m_stage_steps->Show(show); Layout(); }
+    }
 
     // Compact temps line (kept in the small detail label).
     wxString temps;

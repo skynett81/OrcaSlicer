@@ -15,6 +15,7 @@ class wxTextCtrl;
 class wxStaticBitmap;
 class wxListEvent;
 class ProgressBar;
+class StepIndicator;
 
 namespace Slic3r { namespace GUI {
 
@@ -76,6 +77,7 @@ private:
     wxStaticText* m_progress_pct    = nullptr;  // big "NN%"
     ProgressBar*  m_progress_bar    = nullptr;  // styled progress bar
     wxStaticText* m_layer_time      = nullptr;  // "Layer x/y · time left · speed · filament"
+    StepIndicator* m_stage_steps    = nullptr;  // generic print-stage flow (Prepare…Done)
     wxPanel*      m_error_banner    = nullptr;  // red HMS/fault banner (hidden when no error)
     wxStaticText* m_error_text      = nullptr;
     wxButton*     m_btn_load        = nullptr;  // filament load
