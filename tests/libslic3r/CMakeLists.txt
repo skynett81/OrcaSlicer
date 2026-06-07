@@ -12,6 +12,7 @@ add_executable(${_TEST_NAME}_tests
     test_mixed_filament.cpp
     test_color_order.cpp
     test_forge_spool.cpp
+    test_forge_spool_match.cpp
     test_preset_bundle_loading.cpp
     test_elephant_foot_compensation.cpp
     test_geometry.cpp

@@ -310,6 +310,8 @@ set(lisbslic3r_sources
     ColorOrderOptimizer.hpp
     ForgeSpool.cpp
     ForgeSpool.hpp
+    ForgeSpoolMatch.cpp
+    ForgeSpoolMatch.hpp
     filament_mixer.cpp
     filament_mixer.h
     filament_mixer_model.h
