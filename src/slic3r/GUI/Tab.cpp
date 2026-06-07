@@ -2712,7 +2712,9 @@ void TabPrint::build()
         optgroup->append_single_option_line("flush_into_infill", "multimaterial_settings_flush_options#flush-into-objects-infill");
         optgroup->append_single_option_line("flush_into_objects", "multimaterial_settings_flush_options");
         optgroup->append_single_option_line("flush_into_support", "multimaterial_settings_flush_options#flush-into-objects-support");
-        optgroup->append_single_option_line("reduce_infill_retraction", "reduce-infill-retraction");
+        // NOTE: reduce_infill_retraction lives on the "Others" page already — an
+        // option can only be on ONE settings page, and adding it here too crashed
+        // the Multimaterial page build. The waste_mode cascade still adjusts it.
         optgroup = page->new_optgroup(L("Advanced"), L"advanced");
         optgroup->append_single_option_line("interlocking_beam", "multimaterial_settings_advanced#interlocking-beam");
         optgroup->append_single_option_line("interface_shells", "multimaterial_settings_advanced#interface-shells");
