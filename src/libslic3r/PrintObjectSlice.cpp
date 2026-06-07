@@ -878,6 +878,45 @@ template<typename ThrowOnCancel>
 static inline void apply_mm_segmentation(PrintObject &print_object, std::vector<std::vector<ExPolygons>> segmentation, ThrowOnCancel throw_on_cancel)
 {
     assert(segmentation.size() == print_object.layer_count());
+
+    // ---- Mixed-color / "Full Spectrum" resolution (ported from Snapmaker Orca) ----
+    // Virtual "mixed" filaments have 1-based IDs above the physical count. When
+    // present, the painting/segmentation stage emits extra channels for them; we
+    // resolve each virtual channel to the physical extruder it represents on this
+    // layer (LayerCycle cadence) and merge it down, leaving a physical-only
+    // segmentation for the region-assignment logic below.
+    //
+    // This is GATED behind "mixed filaments defined" so it is a strict no-op for
+    // every normal print (no mixed filaments => no virtual channels => the loop
+    // body never runs, segmentation is untouched). Advanced modes (Local-Z
+    // subdivision, same-layer pointillisme, gradient) are not handled here yet.
+    {
+        const MixedFilamentManager &mixed_mgr = print_object.mixed_filament_manager();
+        if (mixed_mgr.enabled_count() > 0) {
+            const size_t num_physical = print_object.print()->config().filament_diameter.size();
+            for (size_t layer_id = 0; layer_id < segmentation.size(); ++layer_id) {
+                std::vector<ExPolygons> &channels = segmentation[layer_id];
+                if (channels.size() <= num_physical)
+                    continue;   // no virtual channels on this layer
+                throw_on_cancel();
+                const Layer *layer = print_object.get_layer(int(layer_id));
+                const float  print_z      = layer ? float(layer->print_z) : 0.f;
+                const float  layer_height = layer ? float(layer->height)   : 0.f;
+                for (size_t ch = num_physical; ch < channels.size(); ++ch) {
+                    if (channels[ch].empty())
+                        continue;
+                    const unsigned int virtual_id = unsigned(ch) + 1; // channel idx -> 1-based filament id
+                    const unsigned int physical   = mixed_mgr.resolve(virtual_id, num_physical,
+                                                                      int(layer_id), print_z, layer_height);
+                    const size_t dst = (physical >= 1 && physical <= num_physical) ? size_t(physical - 1) : 0;
+                    if (dst < num_physical)
+                        append(channels[dst], std::move(channels[ch]));
+                }
+                channels.resize(num_physical);   // collapse to physical-only
+            }
+        }
+    }
+
     tbb::parallel_for(
         tbb::blocked_range<size_t>(0, segmentation.size(), std::max(segmentation.size() / 128, size_t(1))),
         [&print_object, &segmentation, throw_on_cancel](const tbb::blocked_range<size_t> &range) {
