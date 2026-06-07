@@ -306,6 +306,8 @@ set(lisbslic3r_sources
     MultiMaterialSegmentation.hpp
     MixedFilament.cpp
     MixedFilament.hpp
+    ColorOrderOptimizer.cpp
+    ColorOrderOptimizer.hpp
     filament_mixer.cpp
     filament_mixer.h
     filament_mixer_model.h
