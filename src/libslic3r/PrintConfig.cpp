@@ -7174,12 +7174,17 @@ void PrintConfigDef::init_fff_params()
     def = this->add("waste_mode", coEnum);
     def->category = L("Flush options");
     def->label = L("Multi-colour waste mode");
-    def->tooltip = L("How to handle the filament purged on every colour change:\n"
-        "• Quality: no purge reuse — cleanest colours, most waste.\n"
-        "• Balanced (default): reuse purge as hidden infill and support.\n"
-        "• Low waste: also purge into other objects and skip infill retraction.\n"
-        "Choosing a mode sets the individual flush options below; set them by hand "
-        "to fine-tune (the mode then just reflects 'balanced').");
+    def->tooltip = L("On every colour change the nozzle is purged, and that purged filament is "
+        "usually thrown away on the prime tower. This picks how aggressively to reuse it:\n\n"
+        "• Quality — no reuse. Cleanest colour separation, most waste.\n"
+        "• Balanced (default) — reuse the purge as hidden infill and inside support. "
+        "Near-invisible; the recommended setting for most prints.\n"
+        "• Low waste — also purge into other objects and skip infill retraction. "
+        "Squeezes out more savings; check the result on detailed models.\n\n"
+        "Biggest impact on single-nozzle AMS/MMU printers (Bambu, Prusa MMU, …), which "
+        "purge on every change. Tool changers (e.g. Snapmaker U1) already waste little.\n\n"
+        "Selecting a mode just sets the individual flush options below — you can still "
+        "adjust those by hand afterwards.");
     def->enum_keys_map = &ConfigOptionEnum<WasteMode>::get_enum_values();
     def->enum_values.emplace_back("quality");
     def->enum_values.emplace_back("balanced");
