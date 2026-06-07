@@ -46,6 +46,8 @@
 	"ooze_prevention": "1",
 	"preheat_time": "30",
 	"preheat_steps": "1",
+	"flush_into_infill": "1",
+	"wipe_tower_no_sparse_layers": "1",
 	"enable_support": "0",
 	"support_filament": "0",
 	"support_line_width": "0.42",

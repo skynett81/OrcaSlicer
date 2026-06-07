@@ -7157,7 +7157,10 @@ void PrintConfigDef::init_fff_params()
         "This may lower the amount of waste and decrease the print time. "
         "If the walls are printed with transparent filament, the mixed color infill will be seen outside. "
         "It will not take effect, unless the prime tower is enabled.");
-    def->set_default_value(new ConfigOptionBool(false));
+    // 3DPrintForge: default ON to cut multi-colour purge waste — the purged
+    // filament is reused as (hidden) infill instead of dumped to the tower.
+    // Only affects multi-colour prints; disable for transparent-walled prints.
+    def->set_default_value(new ConfigOptionBool(true));
 
     def = this->add("flush_into_support", coBool);
     def->category = L("Flush options");
