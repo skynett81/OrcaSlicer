@@ -1508,6 +1508,29 @@ void Tab::on_value_change(const std::string& opt_key, const boost::any& value)
     if (opt_key == "compatible_printers")
         this->compatible_widget_reload(m_compatible_printers);
 
+    // 3DPrintForge: the "Multi-colour waste mode" selector is a quick preset that
+    // cascades to the individual purge-reuse flush options. Applied only when the
+    // user changes the mode, so manual edits to the flush options still persist.
+    if (opt_key == "waste_mode" && m_type == Preset::TYPE_PRINT) {
+        const WasteMode wm = m_config->opt_enum<WasteMode>("waste_mode");
+        const bool reuse = (wm != wmQuality);   // Balanced / Low waste reuse purge
+        const bool low   = (wm == wmLowWaste);
+        std::map<std::string, bool> cascade = {
+            { "flush_into_infill",        reuse },
+            { "flush_into_support",       reuse },
+            { "flush_into_objects",       low },
+            { "reduce_infill_retraction", low },
+        };
+        for (const auto& kv : cascade) {
+            m_config->set_key_value(kv.first, new ConfigOptionBool(kv.second));
+            for (PageShp& pg : m_pages) {
+                Field* fld = pg->get_field(kv.first);
+                if (fld) fld->set_value(boost::any(kv.second), false);
+            }
+        }
+        update_dirty();
+    }
+
     const bool is_fff = supports_printer_technology(ptFFF);
     ConfigOptionsGroup* og_freq_chng_params = wxGetApp().sidebar().og_freq_chng_params(is_fff);
     //BBS: GUI refactor
@@ -2682,9 +2705,11 @@ void TabPrint::build()
         optgroup->append_single_option_line("preheat_steps", "multimaterial_settings_ooze_prevention#preheat-steps");
 
         optgroup = page->new_optgroup(L("Flush options"), L"param_flush");
+        optgroup->append_single_option_line("waste_mode");
         optgroup->append_single_option_line("flush_into_infill", "multimaterial_settings_flush_options#flush-into-objects-infill");
         optgroup->append_single_option_line("flush_into_objects", "multimaterial_settings_flush_options");
         optgroup->append_single_option_line("flush_into_support", "multimaterial_settings_flush_options#flush-into-objects-support");
+        optgroup->append_single_option_line("reduce_infill_retraction", "reduce-infill-retraction");
         optgroup = page->new_optgroup(L("Advanced"), L"advanced");
         optgroup->append_single_option_line("interlocking_beam", "multimaterial_settings_advanced#interlocking-beam");
         optgroup->append_single_option_line("interface_shells", "multimaterial_settings_advanced#interface-shells");

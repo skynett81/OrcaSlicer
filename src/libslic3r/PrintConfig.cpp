@@ -563,6 +563,13 @@ static const t_config_enum_values s_keys_map_WipeTowerWallType{
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(WipeTowerWallType)
 
+static const t_config_enum_values s_keys_map_WasteMode{
+    {"quality", wmQuality},
+    {"balanced", wmBalanced},
+    {"low_waste", wmLowWaste},
+};
+CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(WasteMode)
+
 static const t_config_enum_values s_keys_map_ExtruderType = {
     { "Direct Drive",   etDirectDrive },
     { "Bowden",        etBowden }
@@ -7161,6 +7168,27 @@ void PrintConfigDef::init_fff_params()
     // filament is reused as (hidden) infill instead of dumped to the tower.
     // Only affects multi-colour prints; disable for transparent-walled prints.
     def->set_default_value(new ConfigOptionBool(true));
+
+    // 3DPrintForge: single user-facing choice for the waste/quality trade-off.
+    // Cascades to the purge-reuse settings (see ConfigManipulation::apply_fff).
+    def = this->add("waste_mode", coEnum);
+    def->category = L("Flush options");
+    def->label = L("Multi-colour waste mode");
+    def->tooltip = L("How to handle the filament purged on every colour change:\n"
+        "• Quality: no purge reuse — cleanest colours, most waste.\n"
+        "• Balanced (default): reuse purge as hidden infill and support.\n"
+        "• Low waste: also purge into other objects and skip infill retraction.\n"
+        "Choosing a mode sets the individual flush options below; set them by hand "
+        "to fine-tune (the mode then just reflects 'balanced').");
+    def->enum_keys_map = &ConfigOptionEnum<WasteMode>::get_enum_values();
+    def->enum_values.emplace_back("quality");
+    def->enum_values.emplace_back("balanced");
+    def->enum_values.emplace_back("low_waste");
+    def->enum_labels.emplace_back(L("Quality (least colour bleed)"));
+    def->enum_labels.emplace_back(L("Balanced"));
+    def->enum_labels.emplace_back(L("Low waste"));
+    def->mode = comSimple;
+    def->set_default_value(new ConfigOptionEnum<WasteMode>(wmBalanced));
 
     def = this->add("flush_into_support", coBool);
     def->category = L("Flush options");

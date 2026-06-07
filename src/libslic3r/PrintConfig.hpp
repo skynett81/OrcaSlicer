@@ -408,6 +408,14 @@ enum CounterboreHoleBridgingOption {
      wtwRib
  };
 
+// 3DPrintForge: multi-colour waste mode — a single user-facing choice that
+// cascades to the underlying purge-reuse settings (see ConfigManipulation).
+enum WasteMode {
+    wmQuality = 0,   // cleanest colours, no purge reuse (most waste)
+    wmBalanced,      // reuse purge as infill + support (default)
+    wmLowWaste,      // also purge into objects + skip infill retraction
+};
+
 // BBS
 enum ExtruderType {
     etDirectDrive = 0,
@@ -549,6 +557,7 @@ CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(CounterboreHoleBridgingOption)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PrintHostType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(AuthorizationType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(WipeTowerWallType)
+CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(WasteMode)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PerimeterGeneratorType)
 CONFIG_OPTION_ENUM_DECLARE_STATIC_MAPS(PowerLossRecoveryMode)
 
@@ -1567,6 +1576,7 @@ PRINT_CONFIG_CLASS_DERIVED_DEFINE(
     ((ConfigOptionFloat,              mixed_filament_surface_indentation))
     ((ConfigOptionBool,               mixed_filament_region_collapse))
     ((ConfigOptionString,             mixed_filament_definitions))
+    ((ConfigOptionEnum<WasteMode>,    waste_mode))
     ((ConfigOptionFloat,              dithering_z_step_size))
     ((ConfigOptionBool,               dithering_local_z_mode))
     ((ConfigOptionBool,               dithering_local_z_whole_objects))
