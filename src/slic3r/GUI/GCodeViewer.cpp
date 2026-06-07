@@ -2,6 +2,7 @@
 #include "GCodeViewer.hpp"
 
 #include "libslic3r/BuildVolume.hpp"
+#include "libslic3r/ColorOrderOptimizer.hpp"
 #include "libslic3r/ClipperUtils.hpp"
 #include "libslic3r/Print.hpp"
 #include "libslic3r/Geometry.hpp"
@@ -4177,6 +4178,46 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                 ImGui::SameLine();
                 ::sprintf(buf, "%s  (%.0f%%)  ~%.2f", pf_waste_weight.c_str(), pf_waste_pct, pf_waste_cost);
                 imgui.text(buf);
+
+                // 3DPrintForge: suggest the filament load order that minimises purge.
+                // The flush between two colours is asymmetric, so reordering the colour
+                // cycle can cut total purge with zero quality loss. Computed over the
+                // filaments actually used in this print, using the slicer's own matrix.
+                const std::vector<uint8_t>& pf_used = m_viewer.get_used_extruders_ids();
+                if (pf_used.size() >= 2) {
+                    const auto& pf_pcfg   = wxGetApp().preset_bundle->project_config;
+                    const auto* pf_mtxopt = pf_pcfg.option<ConfigOptionFloats>("flush_volumes_matrix");
+                    const size_t pf_nozzles = m_nozzle_nums > 0 ? (size_t)m_nozzle_nums : 1;
+                    if (pf_mtxopt != nullptr && !pf_mtxopt->values.empty()) {
+                        const std::vector<double> pf_flat = get_flush_volumes_matrix(pf_mtxopt->values, 0, pf_nozzles);
+                        const size_t pf_total = (size_t)std::lround(std::sqrt((double)pf_flat.size()));
+                        bool pf_ok = pf_total >= 2 && pf_total * pf_total == pf_flat.size();
+                        std::vector<std::vector<double>> pf_sub(pf_used.size(), std::vector<double>(pf_used.size(), 0.0));
+                        for (size_t a = 0; a < pf_used.size() && pf_ok; ++a)
+                            for (size_t b = 0; b < pf_used.size(); ++b) {
+                                const size_t ia = pf_used[a], ib = pf_used[b];
+                                if (ia >= pf_total || ib >= pf_total) { pf_ok = false; break; }
+                                pf_sub[a][b] = (ia == ib) ? 0.0 : pf_flat[ia * pf_total + ib];
+                            }
+                        if (pf_ok) {
+                            const ColorOrderResult pf_res = optimize_color_order(pf_sub);
+                            // Only surface a suggestion when the saving is worth acting on.
+                            if (pf_res.saved_pct >= 5.0 && pf_res.saved > 0.0 && pf_res.order.size() == pf_used.size()) {
+                                std::string pf_order;
+                                for (size_t k = 0; k < pf_res.order.size(); ++k) {
+                                    if (k) pf_order += " -> ";
+                                    pf_order += std::to_string(pf_used[pf_res.order[k]] + 1);
+                                }
+                                pf_order += "  (-" + std::to_string((int)std::lround(pf_res.saved_pct)) + "% purge)";
+                                ImGui::Dummy({ window_padding, window_padding });
+                                ImGui::SameLine();
+                                imgui.text(_u8L("Suggested colour order") + ":");
+                                ImGui::SameLine();
+                                imgui.text(pf_order);
+                            }
+                        }
+                    }
+                }
             }
         }
 
