@@ -304,6 +304,11 @@ set(lisbslic3r_sources
     MTUtils.hpp
     MultiMaterialSegmentation.cpp
     MultiMaterialSegmentation.hpp
+    MixedFilament.cpp
+    MixedFilament.hpp
+    filament_mixer.cpp
+    filament_mixer.h
+    filament_mixer_model.h
     MultiPoint.cpp
     MultiPoint.hpp
     MutablePolygon.cpp

@@ -63,6 +63,8 @@ static constexpr double LARGE_BED_THRESHOLD = 2147;
 
 // Orca: maximum number of extruders is 64. For SEMM printers, it defines maximum filament number.
 static constexpr size_t MAXIMUM_EXTRUDER_NUMBER = 64;
+// Alias used by the ported Mixed-Color / Full Spectrum engine (Snapmaker Orca naming).
+static constexpr size_t MAXIMUM_FILAMENT_NUMBER = MAXIMUM_EXTRUDER_NUMBER;
 
 // Orca: maximum line width is 5 times the nozzle diameter
 static constexpr float MAX_LINE_WIDTH_MULTIPLIER = 5;
