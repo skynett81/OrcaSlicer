@@ -1515,10 +1515,13 @@ void Tab::on_value_change(const std::string& opt_key, const boost::any& value)
         const WasteMode wm = m_config->opt_enum<WasteMode>("waste_mode");
         const bool reuse = (wm != wmQuality);   // Balanced / Low waste reuse purge
         const bool low   = (wm == wmLowWaste);
+        // NOTE: flush_into_objects is deliberately NOT cascaded — enabling it
+        // without a user-designated purge object turns ordinary objects into
+        // purge receptacles (a slice test showed a 2-colour print where the 2nd
+        // object printed in the wrong colour). Users must opt into it per object.
         std::map<std::string, bool> cascade = {
             { "flush_into_infill",        reuse },
             { "flush_into_support",       reuse },
-            { "flush_into_objects",       low },
             { "reduce_infill_retraction", low },
         };
         for (const auto& kv : cascade) {
