@@ -6,6 +6,8 @@
 #include <chrono>
 #include <optional>
 
+#include "libslic3r/ForgeSpool.hpp"
+
 namespace Slic3r {
 
 // Single printer entry returned by 3DPrintForge Server.
@@ -84,6 +86,11 @@ public:
     // Fetches the printer roster. Returns empty list on failure;
     // last_error in auth_state holds the reason.
     std::vector<ForgePrinter> list_printers();
+
+    // Fetches the filament spool inventory (GET /api/inventory/spools).
+    // By default only active (non-archived) spools are returned. Empty list on
+    // failure; last_error in auth_state holds the reason.
+    std::vector<ForgeSpool> list_spools(bool include_archived = false);
 
     // Starts a print job on the named printer. Returns job id on success.
     std::optional<std::string> start_print(const std::string& printer_id,

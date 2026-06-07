@@ -168,6 +168,26 @@ std::vector<ForgePrinter> ForgeCloudAgent::list_printers()
     return out;
 }
 
+std::vector<ForgeSpool> ForgeCloudAgent::list_spools(bool include_archived)
+{
+    auto cli = make_client(m_server_url);
+    const std::string path = include_archived ? "/api/inventory/spools"
+                                              : "/api/inventory/spools?archived=0";
+    auto res = cli->Get(path.c_str(), auth_headers(m_auth.session_token));
+    if (!res) {
+        m_auth.last_error = "Cannot reach server (network)";
+        return {};
+    }
+    if (res->status != 200) {
+        m_auth.last_error = "Server returned HTTP " + std::to_string(res->status);
+        return {};
+    }
+    // Parsing lives in libslic3r (pure + unit-tested); this just feeds it the body.
+    std::vector<ForgeSpool> out = parse_forge_spools(res->body);
+    m_last_synced = std::chrono::steady_clock::now();
+    return out;
+}
+
 std::optional<std::string> ForgeCloudAgent::start_print(const std::string& printer_id,
                                                         const std::string& gcode_path)
 {
