@@ -17,6 +17,7 @@
 #include "GCode/ThumbnailData.hpp"
 #include "GCode/GCodeProcessor.hpp"
 #include "MultiMaterialSegmentation.hpp"
+#include "MixedFilament.hpp"
 #include "libslic3r.h"
 
 #include <Eigen/Geometry>
@@ -52,6 +53,37 @@ struct groupedVolumeSlices
     int                     groupId = -1;
     std::vector<ObjectID>   volume_ids;
     ExPolygons              slices;
+};
+
+// Mixed-color / "Full Spectrum" Local-Z dithering plan (ported from Snapmaker
+// Orca). A LocalZInterval marks a Z band that is split into thinner sublayers
+// for colour mixing; a SubLayerPlan describes one such sublayer pass.
+struct LocalZInterval
+{
+    size_t layer_id { 0 };
+    double z_lo { 0.0 };
+    double z_hi { 0.0 };
+    double base_height { 0.0 };
+    double sublayer_height { 0.0 };
+    bool   has_mixed_paint { false };
+    size_t first_sublayer_idx { 0 };
+    size_t sublayer_count { 0 };
+};
+
+struct SubLayerPlan
+{
+    size_t layer_id { 0 };
+    size_t pass_index { 0 };
+    bool   split_interval { false };
+    double z_lo { 0.0 };
+    double z_hi { 0.0 };
+    double print_z { 0.0 };
+    double flow_height { 0.0 };
+    size_t dependency_group { 0 };
+    size_t dependency_order { 0 };
+    std::vector<ExPolygons> painted_masks_by_extruder;
+    std::vector<ExPolygons> fixed_painted_masks_by_extruder;
+    ExPolygons              base_masks;
 };
 
 enum SupportNecessaryType {
@@ -329,6 +361,23 @@ public:
     const PrintInstances&        instances() const      { return m_instances; }
     PrintInstances &instances() { return m_instances; }
 
+    // Mixed-color / "Full Spectrum" (ported from Snapmaker Orca): per-object
+    // copy of the mixed-filament manager + the Local-Z dithering plan.
+    const MixedFilamentManager& mixed_filament_manager() const { return m_mixed_filament_mgr; }
+    MixedFilamentManager&       mixed_filament_manager()       { return m_mixed_filament_mgr; }
+    const std::vector<LocalZInterval>& local_z_intervals()     const { return m_local_z_intervals; }
+    const std::vector<SubLayerPlan>&   local_z_sublayer_plan() const { return m_local_z_sublayer_plan; }
+    void set_local_z_plan(std::vector<LocalZInterval> intervals, std::vector<SubLayerPlan> sublayers)
+    {
+        m_local_z_intervals = std::move(intervals);
+        m_local_z_sublayer_plan = std::move(sublayers);
+    }
+    void clear_local_z_plan()
+    {
+        m_local_z_intervals.clear();
+        m_local_z_sublayer_plan.clear();
+    }
+
     // Whoever will get a non-const pointer to PrintObject will be able to modify its layers.
     LayerPtrs&                   layers()               { return m_layers; }
     SupportLayerPtrs&            support_layers()       { return m_support_layers; }
@@ -557,6 +606,10 @@ private:
     SlicingParameters                       m_slicing_params;
     LayerPtrs                               m_layers;
     SupportLayerPtrs                        m_support_layers;
+    // Mixed-color / "Full Spectrum" (ported from Snapmaker Orca).
+    MixedFilamentManager                    m_mixed_filament_mgr;
+    std::vector<LocalZInterval>             m_local_z_intervals;
+    std::vector<SubLayerPlan>               m_local_z_sublayer_plan;
     // BBS
     std::shared_ptr<TreeSupportData>        m_tree_support_preview_cache;
 
