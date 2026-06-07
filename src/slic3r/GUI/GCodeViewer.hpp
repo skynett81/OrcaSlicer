@@ -14,11 +14,18 @@
 // needed for tech VGCODE_ENABLE_COG_AND_TOOL_MARKERS
 #include <libvgcode/include/Types.hpp>
 
+#include "libslic3r/ForgeSpoolMatch.hpp"
+
 #include <array>
+#include <atomic>
 #include <cstdint>
 #include <float.h>
+#include <memory>
+#include <mutex>
 #include <set>
+#include <string>
 #include <unordered_set>
+#include <vector>
 
 namespace Slic3r {
 
@@ -30,6 +37,17 @@ namespace GUI {
 
 class PartPlateList;
 class OpenGLManager;
+
+// Async state for the 3DPrintForge "not enough material" check. Held in a
+// shared_ptr so the worker thread that fetches spool inventory can safely
+// outlive the GCodeViewer (it only ever touches this state, never the viewer).
+struct ForgeSpoolMatchState
+{
+    std::mutex              mtx;
+    std::string             sig;       // signature of the needs the matches were computed for
+    std::vector<SpoolMatch> matches;
+    std::atomic<bool>       running{false};
+};
 
 static const float GCODE_VIEWER_SLIDER_SCALE = 0.6f;
 static const float SLIDER_DEFAULT_RIGHT_MARGIN  = 10.0f;
@@ -185,6 +203,8 @@ private:
     unsigned int m_last_result_id{ 0 };
     //BBS: save m_gcode_result as well
     const GCodeProcessorResult* m_gcode_result;
+    // 3DPrintForge: async spool-inventory "not enough material" check state.
+    std::shared_ptr<ForgeSpoolMatchState> m_forge_match;
     std::array<unsigned int, static_cast<size_t>(EMoveType::Count)> m_move_type_counts{};
     std::array<std::array<float, static_cast<size_t>(PrintEstimatedStatistics::ETimeMode::Count)>, static_cast<size_t>(EMoveType::Count)> m_move_type_times{};
     std::array<float, static_cast<size_t>(EMoveType::Count)> m_move_type_distances{};

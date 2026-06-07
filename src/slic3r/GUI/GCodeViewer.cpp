@@ -14,6 +14,9 @@
 #include "libslic3r/Geometry/ConvexHull.hpp"
 
 #include "GUI_App.hpp"
+#include "ForgeCloud.hpp"
+#include "slic3r/Utils/ForgeCloudAgent.hpp"
+#include <thread>
 #include "MainFrame.hpp"
 #include "Plater.hpp"
 #include "Camera.hpp"
@@ -4218,6 +4221,79 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                         }
                     }
                 }
+            }
+        }
+
+        // 3DPrintForge: warn when the connected dashboard's spool inventory does
+        // not hold enough filament for this print. The HTTP fetch + match runs on
+        // a worker thread (once per distinct set of needs) so a slow or unreachable
+        // host can never stall the render loop. With no reachable dashboard the
+        // inventory is empty, every filament is "unknown", and nothing is shown —
+        // the warning appears only on a real, matched shortage.
+        if (wxGetApp().plater() != nullptr) {
+            const std::vector<uint8_t>& mat_used = m_viewer.get_used_extruders_ids();
+            const std::vector<std::string> mat_hex =
+                wxGetApp().plater()->get_extruder_colors_from_plater_config(m_gcode_result);
+
+            std::vector<FilamentNeed> needs;
+            needs.reserve(mat_used.size());
+            std::string sig;
+            for (size_t k = 0; k < mat_used.size(); ++k) {
+                const uint8_t ext = mat_used[k];
+                double g = 0.0;
+                if (k < model_used_filaments_g.size())      g += model_used_filaments_g[k];
+                if (k < support_used_filaments_g.size())    g += support_used_filaments_g[k];
+                if (k < flushed_filaments_g.size())         g += flushed_filaments_g[k];
+                if (k < wipe_tower_used_filaments_g.size()) g += wipe_tower_used_filaments_g[k];
+                FilamentNeed need;
+                need.color_hex = (ext < mat_hex.size()) ? mat_hex[ext] : std::string();
+                need.needed_g  = g;
+                needs.push_back(need);
+                char sb[48];
+                ::snprintf(sb, sizeof(sb), "%u:%s:%.0f|", (unsigned)ext, need.color_hex.c_str(), g);
+                sig += sb;
+            }
+
+            if (!m_forge_match)
+                m_forge_match = std::make_shared<ForgeSpoolMatchState>();
+            std::shared_ptr<ForgeSpoolMatchState> state = m_forge_match;
+
+            bool need_refresh = false;
+            { std::lock_guard<std::mutex> lk(state->mtx); need_refresh = (state->sig != sig); }
+            if (need_refresh && !needs.empty() && !state->running.exchange(true)) {
+                const std::string url = forge_dashboard_url();
+                std::thread([state, needs, sig, url]() {
+                    ForgeCloudAgent agent;
+                    agent.set_server_url(url);
+                    std::vector<ForgeSpool> spools  = agent.list_spools();
+                    std::vector<SpoolMatch>  matches = match_filaments_to_spools(needs, spools);
+                    {
+                        std::lock_guard<std::mutex> lk(state->mtx);
+                        state->matches = std::move(matches);
+                        state->sig     = sig;
+                    }
+                    state->running = false;
+                }).detach();
+            }
+
+            std::vector<SpoolMatch> shortages;
+            {
+                std::lock_guard<std::mutex> lk(state->mtx);
+                for (const SpoolMatch& m : state->matches)
+                    if (m.matched && !m.sufficient && m.deficit_g > 0.0)
+                        shortages.push_back(m);
+            }
+            for (const SpoolMatch& m : shortages) {
+                const uint8_t ext = (m.filament_index >= 0 && m.filament_index < (int)mat_used.size())
+                                        ? mat_used[m.filament_index] : uint8_t(0);
+                ImGui::Dummy({ window_padding, window_padding });
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.93f, 0.42f, 0.20f, 1.0f));
+                const std::string wline = _u8L("Not enough filament") + " " + std::to_string(ext + 1) + ": " +
+                    _u8L("short by") + " " + std::to_string((int)std::lround(m.deficit_g)) + " g (" +
+                    _u8L("have") + " " + std::to_string((int)std::lround(m.available_g)) + " g)";
+                imgui.text(wline);
+                ImGui::PopStyleColor();
             }
         }
 
