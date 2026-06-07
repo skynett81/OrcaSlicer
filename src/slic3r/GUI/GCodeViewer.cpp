@@ -4173,13 +4173,48 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
             if (pf_waste_g > 0.0) {
                 const double pf_all_g = total_model_used_filament_g + total_support_used_filament_g + pf_waste_g;
                 const double pf_waste_pct  = pf_all_g > 0.0 ? (pf_waste_g / pf_all_g) * 100.0 : 0.0;
-                const double pf_waste_cost = pf_all_g > 0.0 ? ps.total_cost * (pf_waste_g / pf_all_g) : 0.0;
+                // Default: proportional estimate from the slicer's filament cost.
+                double pf_waste_cost = pf_all_g > 0.0 ? ps.total_cost * (pf_waste_g / pf_all_g) : 0.0;
+                bool   pf_cost_real  = false;
+                // Refine with REAL per-gram cost from matched 3DPrintForge spools
+                // when the (async) inventory match is available: price each
+                // filament's purge grams by its matched spool cost and estimate
+                // only the remainder. Falls back silently to the estimate when no
+                // spool is matched or none carries a price.
+                if (m_forge_match) {
+                    const std::vector<uint8_t>& cuids = m_viewer.get_used_extruders_ids();
+                    double real_cost = 0.0, priced_g = 0.0;
+                    {
+                        std::lock_guard<std::mutex> lk(m_forge_match->mtx);
+                        for (const SpoolMatch& mm : m_forge_match->matches) {
+                            if (mm.cost_per_gram < 0.0)
+                                continue;
+                            const int k = mm.filament_index;
+                            if (k < 0 || k >= (int)cuids.size())
+                                continue;
+                            double wg = 0.0;
+                            if ((size_t)k < flushed_filaments_g.size())         wg += flushed_filaments_g[k];
+                            if ((size_t)k < wipe_tower_used_filaments_g.size()) wg += wipe_tower_used_filaments_g[k];
+                            real_cost += wg * mm.cost_per_gram;
+                            priced_g  += wg;
+                        }
+                    }
+                    if (priced_g > 0.0) {
+                        const double rest_g    = std::max(0.0, pf_waste_g - priced_g);
+                        const double est_per_g = pf_all_g > 0.0 ? (ps.total_cost / pf_all_g) : 0.0;
+                        pf_waste_cost = real_cost + rest_g * est_per_g;
+                        pf_cost_real  = (rest_g <= 0.01);
+                    }
+                }
                 const std::string pf_waste_weight = format_compact_weight((float)pf_waste_g, imperial_units);
                 ImGui::Dummy({ window_padding, window_padding });
                 ImGui::SameLine();
                 imgui.text(_u8L("Multi-colour waste") + ":");
                 ImGui::SameLine();
-                ::sprintf(buf, "%s  (%.0f%%)  ~%.2f", pf_waste_weight.c_str(), pf_waste_pct, pf_waste_cost);
+                // '~' marks a proportional estimate; it is dropped once every wasted
+                // gram is priced from real spool cost.
+                ::sprintf(buf, pf_cost_real ? "%s  (%.0f%%)  %.2f" : "%s  (%.0f%%)  ~%.2f",
+                          pf_waste_weight.c_str(), pf_waste_pct, pf_waste_cost);
                 imgui.text(buf);
 
                 // 3DPrintForge: suggest the filament load order that minimises purge.

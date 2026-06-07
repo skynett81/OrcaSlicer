@@ -72,6 +72,33 @@ TEST_CASE("archived spools are ignored", "[ForgeSpoolMatch]")
     REQUIRE_FALSE(r[0].sufficient);
 }
 
+TEST_CASE("cost_per_gram is remaining-weighted across matched spools", "[ForgeSpoolMatch]")
+{
+    auto with_cost = [](int id, const char* hex, double remaining, double cost, double initial) {
+        ForgeSpool s;
+        s.id = id; s.color_hex = hex; s.material = "PLA";
+        s.remaining_g = remaining; s.cost = cost; s.initial_g = initial;
+        return s;
+    };
+    // spool A: 0.30 /g over 300 g remaining; spool B: 0.20 /g over 100 g remaining.
+    // weighted = (0.30*300 + 0.20*100) / 400 = 110/400 = 0.275
+    std::vector<ForgeSpool> inv = {
+        with_cost(1, "0086D6", 300.0, 300.0, 1000.0),
+        with_cost(2, "0086D6", 100.0, 200.0, 1000.0),
+    };
+    auto r = match_filaments_to_spools({ {"0086D6", "PLA", 50.0} }, inv);
+    REQUIRE(r[0].matched);
+    REQUIRE_THAT(r[0].cost_per_gram, Catch::Matchers::WithinAbs(0.275, 1e-6));
+}
+
+TEST_CASE("cost_per_gram is -1 when no matched spool carries a price", "[ForgeSpoolMatch]")
+{
+    std::vector<ForgeSpool> inv = { spool(1, "0086D6", "PLA", 500.0) }; // no cost/initial set
+    auto r = match_filaments_to_spools({ {"0086D6", "PLA", 50.0} }, inv);
+    REQUIRE(r[0].matched);
+    REQUIRE(r[0].cost_per_gram == -1.0);
+}
+
 TEST_CASE("no match leaves sufficiency unknown (false), not a false 'ok'", "[ForgeSpoolMatch]")
 {
     std::vector<ForgeSpool> inv = { spool(1, "00FF00", "PLA", 1000.0) };

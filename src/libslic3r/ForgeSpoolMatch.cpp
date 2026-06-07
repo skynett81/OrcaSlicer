@@ -33,6 +33,8 @@ std::vector<SpoolMatch> match_filaments_to_spools(const std::vector<FilamentNeed
         const std::string want_hex = normalise_token(need.color_hex);
         const std::string want_mat = normalise_token(need.material);
 
+        double cost_accum_g = 0.0; // sum of remaining grams that carry a price
+        double cost_accum   = 0.0; // sum of cost_per_gram * remaining for those
         for (const ForgeSpool& sp : spools) {
             if (sp.archived)
                 continue;
@@ -44,11 +46,18 @@ std::vector<SpoolMatch> match_filaments_to_spools(const std::vector<FilamentNeed
             m.spool_ids.push_back(sp.id);
             if (sp.remaining_g > 0.0)
                 m.available_g += sp.remaining_g;
+            const double cpg = sp.cost_per_gram();
+            if (cpg >= 0.0 && sp.remaining_g > 0.0) {
+                cost_accum   += cpg * sp.remaining_g;
+                cost_accum_g += sp.remaining_g;
+            }
         }
 
         if (m.matched) {
             m.deficit_g  = std::max(0.0, m.needed_g - m.available_g);
             m.sufficient = m.available_g >= m.needed_g;
+            if (cost_accum_g > 0.0)
+                m.cost_per_gram = cost_accum / cost_accum_g;
         }
         out.push_back(std::move(m));
     }

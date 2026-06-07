@@ -29,6 +29,10 @@ struct SpoolMatch
     bool                sufficient     = false;
     // max(0, needed_g - available_g) when matched, else 0.
     double              deficit_g      = 0.0;
+    // Remaining-weighted average cost per gram across matched spools that report
+    // a price, or -1 when no matched spool has a known cost. Lets callers price
+    // this filament's usage (e.g. purge waste) from real inventory cost.
+    double              cost_per_gram  = -1.0;
     std::vector<int>    spool_ids;             // ids of the matched spools
 };
 
