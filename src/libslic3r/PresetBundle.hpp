@@ -3,6 +3,7 @@
 
 #include "Preset.hpp"
 #include "AppConfig.hpp"
+#include "MixedFilament.hpp"
 #include "enum_bitmask.hpp"
 
 #include <memory>
@@ -322,6 +323,10 @@ public:
     // Filament preset names for a multi-extruder or multi-material print.
     // extruders.size() should be the same as printers.get_edited_preset().config.nozzle_diameter.size()
     std::vector<std::string>    filament_presets;
+    // Mixed-color / "Full Spectrum": virtual filaments blended from the physical
+    // ones (ported from Snapmaker Orca). Owns the mixed-filament list used by the
+    // GUI editor and resolved to physical extruders during slicing (phase 5).
+    MixedFilamentManager        mixed_filaments;
     // BBS: ams
     std::map<int, DynamicPrintConfig> filament_ams_list;
     std::vector<std::vector<std::string>> ams_multi_color_filment;
