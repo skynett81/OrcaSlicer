@@ -6,6 +6,7 @@
 #include "Widgets/Button.hpp"
 #include "Widgets/ImageSwitchButton.hpp"
 #include "Widgets/StaticBox.hpp"
+#include "Widgets/StaticLine.hpp"
 #include "Widgets/StateColor.hpp"
 #include "Widgets/Label.hpp"
 #include "Widgets/SwitchButton.hpp"
@@ -83,6 +84,12 @@ void ForgeControlPanel::build()
         return ti;
     };
 
+    auto make_hline = [&]() {
+        auto* l = new StaticLine(box);
+        l->SetLineColour(COL_LINE);
+        return l;
+    };
+
     auto* temps = new wxBoxSizer(wxVERTICAL);
     m_temp_nozzle  = make_temp("monitor_nozzle_temp", "monitor_nozzle_temp_active",
                                0, 350, false, wxSize(FromDIP(145), FromDIP(48)));
@@ -91,8 +98,78 @@ void ForgeControlPanel::build()
     m_temp_chamber = make_temp("monitor_frame_temp", "monitor_frame_temp_active",
                                0, 60, true, wxSize(FromDIP(125), FromDIP(52)));
     temps->Add(m_temp_nozzle,  0, wxEXPAND | wxALL, 1);
+    temps->Add(make_hline(),   0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(12));
     temps->Add(m_temp_bed,     0, wxEXPAND | wxALL, 1);
+    temps->Add(make_hline(),   0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(12));
     temps->Add(m_temp_chamber, 0, wxEXPAND | wxALL, 1);
+
+    // -- misc control (fan / speed / lamp) — lives in the temp column, native
+    //    vertical order: line, Fan (full width), line, [Speed | Lamp] --
+    auto* misc = new wxBoxSizer(wxVERTICAL);
+    misc->Add(make_hline(), 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(12));
+
+    m_fan_panel = new StaticBox(box);
+    m_fan_panel->SetMinSize(wxSize(FromDIP(136), FromDIP(55)));
+    m_fan_panel->SetMaxSize(wxSize(FromDIP(136), FromDIP(55)));
+    m_fan_panel->SetBackgroundColor(*wxWHITE);
+    m_fan_panel->SetBorderWidth(0);
+    m_fan_panel->SetCornerRadius(0);
+    auto* fan_sizer = new wxBoxSizer(wxHORIZONTAL);
+    m_fan = new FanSwitchButton(m_fan_panel, m_bmp_fan_on, m_bmp_fan_off);
+    m_fan->SetValue(false);
+    m_fan->SetMinSize(wxSize(FromDIP(132), FromDIP(51)));
+    m_fan->SetMaxSize(wxSize(FromDIP(132), FromDIP(51)));
+    m_fan->SetPadding(FromDIP(1));
+    m_fan->SetBorderWidth(0);
+    m_fan->SetCornerRadius(0);
+    m_fan->SetFont(::Label::Body_10);
+    m_fan->UseTextFan();
+    m_fan->SetTextColor(StateColor(std::make_pair(COL_DISC, (int) StateColor::Disabled),
+                                   std::make_pair(COL_FANTEXT, (int) StateColor::Normal)));
+    m_fan->Bind(wxEVT_ENTER_WINDOW, [this](wxMouseEvent&) { m_fan_panel->SetBackgroundColor(COL_HOVER); });
+    m_fan->Bind(wxEVT_LEAVE_WINDOW, [this](wxMouseEvent&) { m_fan_panel->SetBackgroundColor(*wxWHITE); });
+    m_fan->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [this](wxCommandEvent&) { show_fan_menu(); });
+    fan_sizer->Add(m_fan, 1, wxEXPAND | wxALL, FromDIP(2));
+    m_fan_panel->SetSizer(fan_sizer);
+    misc->Add(m_fan_panel, 0, wxEXPAND, FromDIP(5));
+
+    misc->Add(make_hline(), 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP(12));
+
+    auto* sl_row = new wxBoxSizer(wxHORIZONTAL);
+    m_speed = new ImageSwitchButton(box, m_bmp_speed_active, m_bmp_speed);
+    m_speed->SetLabels("100%", "100%");
+    m_speed->SetMinSize(wxSize(FromDIP(66), FromDIP(51)));
+    m_speed->SetMaxSize(wxSize(FromDIP(66), FromDIP(51)));
+    m_speed->SetPadding(FromDIP(3));
+    m_speed->SetBorderWidth(FromDIP(2));
+    m_speed->SetFont(::Label::Head_13);
+    m_speed->SetTextColor(text_sc);
+    m_speed->SetValue(false);
+    m_speed->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent&) { show_speed_menu(); });
+    sl_row->Add(m_speed, 1, wxALIGN_CENTER | wxALL, 0);
+
+    auto* vline = new StaticLine(box, true);
+    vline->SetLineColour(COL_LINE);
+    sl_row->Add(vline, 0, wxEXPAND | wxTOP | wxBOTTOM, FromDIP(4));
+
+    m_lamp = new ImageSwitchButton(box, m_bmp_lamp_on, m_bmp_lamp_off);
+    m_lamp->SetLabels(_L("Lamp"), _L("Lamp"));
+    m_lamp->SetMinSize(wxSize(FromDIP(66), FromDIP(51)));
+    m_lamp->SetMaxSize(wxSize(FromDIP(66), FromDIP(51)));
+    m_lamp->SetPadding(FromDIP(3));
+    m_lamp->SetBorderWidth(FromDIP(2));
+    m_lamp->SetFont(::Label::Head_13);
+    m_lamp->SetTextColor(text_sc);
+    m_lamp->SetValue(false);
+    m_lamp->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [this](wxCommandEvent&) {
+        bool nv = !m_lamp->GetValue();
+        m_lamp->SetValue(nv);
+        if (m_cb.light) m_cb.light(nv);
+    });
+    sl_row->Add(m_lamp, 1, wxALIGN_CENTER | wxALL, 0);
+    misc->Add(sl_row, 0, wxEXPAND, FromDIP(5));
+
+    temps->Add(misc, 0, wxEXPAND, 0);
     content->Add(temps, 0, wxEXPAND | wxALL, FromDIP(5));
 
     auto make_divider = [&]() {
@@ -142,29 +219,38 @@ void ForgeControlPanel::build()
 
     content->Add(make_divider(), 0, wxEXPAND);
 
-    // -- extruder column: Left/Right toggle + tool selector + extrude/retract --
+    // -- extruder column: Left/Right toggle (or T1..N for multi-tool) +
+    //    extrude/retract, with the "Extruder" label pinned to the bottom --
     auto* extr = new wxBoxSizer(wxVERTICAL);
+    extr->Add(FromDIP(143), 0, 0);              // fix column width like native
+    extr->AddSpacer(FromDIP(15));
 
     // Left/Right nozzle toggle (matches the Bambu Device dual-nozzle switch);
-    // shown for <=2 nozzles, replaced by T1..N buttons for >2 (e.g. U1).
+    // shown for <=2 nozzles, replaced by a T1..N grid for >2 (e.g. U1).
     m_nozzle_switch = new SwitchBoard(box, _L("Left"), _L("Right"), wxSize(FromDIP(126), FromDIP(26)));
     m_nozzle_switch->Bind(wxCUSTOMEVT_SWITCH_POS, [this](wxCommandEvent& e) {
         if (m_cb.select_tool) m_cb.select_tool(e.GetInt() == 1 ? 0 : 1); // 1=left=T0, 0=right=T1
     });
-    extr->Add(m_nozzle_switch, 0, wxALIGN_CENTER | wxBOTTOM, FromDIP(6));
+    extr->Add(m_nozzle_switch, 0, wxALIGN_CENTER_HORIZONTAL, 0);
 
-    m_tool_sizer = new wxBoxSizer(wxHORIZONTAL);
+    auto* tool_grid = new wxGridSizer(0, 4, FromDIP(3), FromDIP(3));
+    m_tool_sizer = tool_grid;
+    StateColor tool_bg(std::make_pair(COL_HOVER, (int) StateColor::Checked),
+                       std::make_pair(COL_PRESS, (int) StateColor::Pressed),
+                       std::make_pair(COL_N1,    (int) StateColor::Normal));
     for (int t = 0; t < 8; ++t) {
         auto* b = new Button(box, wxString::Format("T%d", t + 1));
         b->SetFont(::Label::Body_12);
-        b->SetMinSize(wxSize(FromDIP(34), FromDIP(28)));
+        b->SetMinSize(wxSize(FromDIP(31), FromDIP(28)));
         b->SetCornerRadius(FromDIP(4));
+        b->SetBackgroundColor(tool_bg);
+        b->SetTextColor(text_sc);
         b->Bind(wxEVT_BUTTON, [this, t](wxCommandEvent&) { if (m_cb.select_tool) m_cb.select_tool(t); });
         b->Hide();
         m_tool_btn[t] = b;
-        m_tool_sizer->Add(b, 0, wxRIGHT | wxBOTTOM, FromDIP(2));
+        tool_grid->Add(b, 0, wxALIGN_CENTER);
     }
-    extr->Add(m_tool_sizer, 0, wxALIGN_CENTER);
+    extr->Add(tool_grid, 0, wxALIGN_CENTER_HORIZONTAL, 0);
 
     StateColor e_bg(std::make_pair(COL_PRESS, (int) StateColor::Pressed), std::make_pair(COL_N1, (int) StateColor::Normal));
     StateColor e_bd(std::make_pair(COL_HOVER, (int) StateColor::Hovered), std::make_pair(COL_N1, (int) StateColor::Normal));
@@ -179,72 +265,23 @@ void ForgeControlPanel::build()
         b->Bind(wxEVT_BUTTON, [this, amt](wxCommandEvent&) { if (m_cb.extrude) m_cb.extrude(amt); });
         return b;
     };
-    extr->Add(make_e("monitor_extruder_up", 10), 0, wxALIGN_CENTER | wxTOP, FromDIP(6));
-    extr->Add(new wxStaticText(box, wxID_ANY, _L("Extruder")), 0, wxALIGN_CENTER | wxTOP | wxBOTTOM, FromDIP(4));
-    extr->Add(make_e("monitor_extruder_down", -10), 0, wxALIGN_CENTER);
-    content->Add(extr, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP | wxBOTTOM, FromDIP(12));
+    extr->AddSpacer(FromDIP(15));
+    extr->Add(make_e("monitor_extruder_up", 10), 0, wxALIGN_CENTER_HORIZONTAL, 0);
+    extr->AddSpacer(FromDIP(7));
+    extr->Add(make_e("monitor_extruder_down", -10), 0, wxALIGN_CENTER_HORIZONTAL, 0);
+    extr->AddStretchSpacer(1);
+    auto* elbl = new wxStaticText(box, wxID_ANY, _L("Extruder"));
+    elbl->SetFont(::Label::Body_13);
+    elbl->SetForegroundColour(COL_FANTEXT);
+    extr->Add(elbl, 0, wxTOP | wxALIGN_CENTER_HORIZONTAL, FromDIP(10));
+    content->Add(extr, 0, wxEXPAND | wxTOP | wxBOTTOM, FromDIP(12));
+    content->Add(FromDIP(3), 0, 0);
 
     box->SetSizer(content);
     root->Add(box, 0, wxEXPAND);
 
     // TempInput posts wxCUSTOMEVT_SET_TEMP_FINISH to its parent (the box).
     box->Bind(wxCUSTOMEVT_SET_TEMP_FINISH, &ForgeControlPanel::on_temp_finish, this);
-
-    // ---- misc control row: speed | lamp | fan ----
-    auto* misc = new wxBoxSizer(wxHORIZONTAL);
-
-    m_speed = new ImageSwitchButton(this, m_bmp_speed_active, m_bmp_speed);
-    m_speed->SetLabels("100%", "100%");
-    m_speed->SetMinSize(wxSize(FromDIP(66), FromDIP(51)));
-    m_speed->SetMaxSize(wxSize(FromDIP(66), FromDIP(51)));
-    m_speed->SetPadding(FromDIP(3));
-    m_speed->SetBorderWidth(FromDIP(2));
-    m_speed->SetFont(::Label::Head_13);
-    m_speed->SetTextColor(text_sc);
-    m_speed->SetValue(false);
-    m_speed->Bind(wxEVT_LEFT_DOWN, [this](wxMouseEvent&) { show_speed_menu(); });
-    misc->Add(m_speed, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(8));
-
-    m_lamp = new ImageSwitchButton(this, m_bmp_lamp_on, m_bmp_lamp_off);
-    m_lamp->SetLabels(_L("Lamp"), _L("Lamp"));
-    m_lamp->SetMinSize(wxSize(FromDIP(66), FromDIP(51)));
-    m_lamp->SetMaxSize(wxSize(FromDIP(66), FromDIP(51)));
-    m_lamp->SetPadding(FromDIP(3));
-    m_lamp->SetBorderWidth(FromDIP(2));
-    m_lamp->SetFont(::Label::Head_13);
-    m_lamp->SetTextColor(text_sc);
-    m_lamp->SetValue(false);
-    m_lamp->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [this](wxCommandEvent&) {
-        bool nv = !m_lamp->GetValue();
-        m_lamp->SetValue(nv);
-        if (m_cb.light) m_cb.light(nv);
-    });
-    misc->Add(m_lamp, 0, wxALIGN_CENTER | wxRIGHT, FromDIP(8));
-
-    m_fan_panel = new StaticBox(this);
-    m_fan_panel->SetMinSize(wxSize(FromDIP(136), FromDIP(55)));
-    m_fan_panel->SetMaxSize(wxSize(FromDIP(136), FromDIP(55)));
-    m_fan_panel->SetBackgroundColor(*wxWHITE);
-    m_fan_panel->SetBorderWidth(0);
-    m_fan_panel->SetCornerRadius(0);
-    auto* fan_sizer = new wxBoxSizer(wxHORIZONTAL);
-    m_fan = new FanSwitchButton(m_fan_panel, m_bmp_fan_on, m_bmp_fan_off);
-    m_fan->SetValue(false);
-    m_fan->SetMinSize(wxSize(FromDIP(132), FromDIP(51)));
-    m_fan->SetMaxSize(wxSize(FromDIP(132), FromDIP(51)));
-    m_fan->SetPadding(FromDIP(1));
-    m_fan->SetBorderWidth(0);
-    m_fan->SetCornerRadius(0);
-    m_fan->SetFont(::Label::Body_10);
-    m_fan->UseTextFan();
-    m_fan->SetTextColor(StateColor(std::make_pair(COL_DISC, (int) StateColor::Disabled),
-                                   std::make_pair(COL_FANTEXT, (int) StateColor::Normal)));
-    m_fan->Bind(wxEVT_COMMAND_BUTTON_CLICKED, [this](wxCommandEvent&) { show_fan_menu(); });
-    fan_sizer->Add(m_fan, 1, wxALIGN_CENTER);
-    m_fan_panel->SetSizer(fan_sizer);
-    misc->Add(m_fan_panel, 0, wxALIGN_CENTER);
-
-    root->Add(misc, 0, wxALIGN_CENTER | wxTOP, FromDIP(8));
 
     SetSizer(root);
 }
@@ -326,13 +363,33 @@ void ForgeControlPanel::set_tool_count(int n)
     }
     for (int t = 0; t < 8; ++t)
         if (m_tool_btn[t]) m_tool_btn[t]->Show(many && t < n);
+    highlight_active_tool();
     Layout();
+}
+
+void ForgeControlPanel::highlight_active_tool()
+{
+    // Selected toolhead gets the brand teal; the rest stay neutral grey.
+    for (int t = 0; t < 8; ++t) {
+        if (!m_tool_btn[t]) continue;
+        const bool on = (t == m_active_tool);
+        m_tool_btn[t]->SetBackgroundColor(StateColor(
+            std::make_pair(on ? COL_HOVER : COL_N1, (int) StateColor::Normal)));
+        m_tool_btn[t]->SetTextColor(StateColor(
+            std::make_pair(on ? *wxWHITE : COL_TEXT, (int) StateColor::Normal)));
+    }
+    // Keep the dual-nozzle toggle in sync with the active tool (0=Left, 1=Right).
+    if (m_nozzle_switch && m_tool_count == 2 && m_active_tool >= 0)
+        m_nozzle_switch->updateState(m_active_tool == 0 ? "left" : "right");
 }
 
 void ForgeControlPanel::update_state(const ForgeLiveState& ls)
 {
     set_tool_count(static_cast<int>(ls.tools.size()));
-    if (ls.active_tool >= 0) m_active_tool = ls.active_tool;
+    if (ls.active_tool >= 0 && ls.active_tool != m_active_tool) {
+        m_active_tool = ls.active_tool;
+        highlight_active_tool();
+    }
 
     // Nozzle: show the active tool's temp/target when multi-tool, else the
     // single nozzle reading.

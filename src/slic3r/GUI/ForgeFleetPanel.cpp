@@ -195,9 +195,10 @@ void ForgeFleetPanel::build_ui()
         b->Bind(wxEVT_BUTTON, [fn](wxCommandEvent&) { fn(); });
         cts->Add(b, 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, FromDIP(6));
     };
-    add_hdr_btn(_L("Printer Parts"), [this] { if (!m_agent->server_url().empty()) wxLaunchDefaultBrowser(wxString::FromUTF8(m_agent->server_url())); });
-    add_hdr_btn(_L("Print Options"), [this] { if (!m_agent->server_url().empty()) wxLaunchDefaultBrowser(wxString::FromUTF8(m_agent->server_url())); });
-    add_hdr_btn(_L("Calibration"),   [] { if (wxGetApp().mainframe) wxGetApp().mainframe->select_tab(size_t(MainFrame::tpCalibration)); });
+    add_hdr_btn(_L("Printer Parts"),  [this] { if (!m_agent->server_url().empty()) wxLaunchDefaultBrowser(wxString::FromUTF8(m_agent->server_url())); });
+    add_hdr_btn(_L("Print Options"),  [this] { if (!m_agent->server_url().empty()) wxLaunchDefaultBrowser(wxString::FromUTF8(m_agent->server_url())); });
+    add_hdr_btn(_L("Safety Options"), [this] { if (!m_agent->server_url().empty()) wxLaunchDefaultBrowser(wxString::FromUTF8(m_agent->server_url())); });
+    add_hdr_btn(_L("Calibration"),    [] { if (wxGetApp().mainframe) wxGetApp().mainframe->select_tab(size_t(MainFrame::tpCalibration)); });
     ctrl_title->SetSizer(cts);
 
     rightcol->Add(ctrl_title, 0, wxEXPAND);
@@ -354,16 +355,28 @@ void ForgeFleetPanel::on_show()
 
     // Auto-select a printer so the camera + Control panel populate instead of
     // showing an empty view. Prefer a gcode-capable (Moonraker/Klipper) printer
-    // so the control widgets light up.
-    if (m_selected_printer_id.empty() && !m_printers.empty()) {
-        long idx = 0;
+    // so the control widgets light up. Deferred via CallAfter so it runs *after*
+    // GTK's own initial row-0 selection (which would otherwise win the race and
+    // leave a non-controllable printer selected).
+    CallAfter([this] {
+        if (m_printers.empty()) return;
+        auto is_gcode = [](const ForgePrinter& p) {
+            return p.vendor == "moonraker" || p.vendor == "klipper";
+        };
+        const ForgePrinter* cur = nullptr;
+        for (const auto& fp : m_printers)
+            if (fp.id == m_selected_printer_id) { cur = &fp; break; }
+        if (cur && is_gcode(*cur)) return;           // already on a controllable printer
+        long idx = -1;
         for (size_t i = 0; i < m_printers.size(); ++i)
-            if (m_printers[i].vendor == "moonraker" || m_printers[i].vendor == "klipper") { idx = (long) i; break; }
+            if (is_gcode(m_printers[i])) { idx = (long) i; break; }
+        if (idx < 0 && m_selected_printer_id.empty()) idx = 0; // no gcode printer: show first
+        if (idx < 0) return;
         m_selected_printer_id = m_printers[idx].id;
         if (m_list) m_list->SetItemState(idx, wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED,
                                          wxLIST_STATE_SELECTED | wxLIST_STATE_FOCUSED);
         update_detail();
-    }
+    });
 
     if (!m_poll_timer.IsRunning())
         m_poll_timer.Start(POLL_INTERVAL_MS);

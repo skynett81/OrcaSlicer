@@ -50,6 +50,7 @@ public:
 
 private:
     void build();
+    void highlight_active_tool();               // teal-highlight the selected toolhead
     void on_axis(wxCommandEvent& evt);          // AxisCtrlButton sector click
     void on_temp_finish(wxCommandEvent& evt);   // TempInput edit committed
     void show_fan_menu();
@@ -73,7 +74,7 @@ private:
     FanSwitchButton*   m_fan          = nullptr;
     StaticBox*         m_fan_panel    = nullptr;
     SwitchBoard*       m_nozzle_switch= nullptr;   // Left/Right toggle (dual nozzle)
-    wxBoxSizer*        m_tool_sizer   = nullptr;
+    wxSizer*           m_tool_sizer   = nullptr;   // T1..Tn grid (3+ tool machines)
     Button*            m_tool_btn[8]  = { nullptr };
 };
 
