@@ -137,6 +137,7 @@
 #include "Widgets/RadioGroup.hpp"
 #include "Widgets/CheckBox.hpp"
 #include "Widgets/Button.hpp"
+#include "MixedFilamentDialog.hpp"
 #include "Widgets/StaticGroup.hpp"
 
 #include "GUI_ObjectTable.hpp"
@@ -2102,6 +2103,50 @@ Sidebar::Sidebar(Plater *parent)
 
     bSizer39->Add(p->m_flushing_volume_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
     bSizer39->Hide(p->m_flushing_volume_btn); // ORCA Ensure button is hidden on launch while 1 filament exist
+
+    // Mixed-color / "Full Spectrum" (ported from Snapmaker Orca): open the
+    // mixed-filament editor to blend the loaded filaments into virtual colours.
+    Button* mixed_btn = new Button(p->m_panel_filament_title, _L("Mixed..."));
+    mixed_btn->SetStyle(ButtonStyle::Confirm, ButtonType::Compact);
+    mixed_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) {
+        PresetBundle* pb = wxGetApp().preset_bundle;
+        if (!pb) return;
+        auto* co = pb->project_config.option<ConfigOptionStrings>("filament_colour");
+        const std::vector<std::string> colors = co ? co->values : std::vector<std::string>{};
+        if (colors.size() < 2) {
+            wxMessageBox(_L("Load at least two filaments to create a mixed (Full Spectrum) colour."),
+                         _L("Mixed filaments"), wxOK | wxICON_INFORMATION);
+            return;
+        }
+        MixedFilamentDialog dlg(wxGetApp().mainframe, colors);
+        if (dlg.ShowModal() != wxID_OK) return;
+        auto& mgr = pb->mixed_filaments;
+        if (mgr.total_filaments(colors.size()) >= MAXIMUM_FILAMENT_NUMBER) return;
+        const MixedFilament& r = dlg.GetResult();
+        mgr.add_custom_filament(r.component_a, r.component_b, r.mix_b_percent, colors);
+        auto& mfs = mgr.mixed_filaments();
+        if (!mfs.empty()) {
+            MixedFilament& back = mfs.back();
+            back.distribution_mode          = r.distribution_mode;
+            back.manual_pattern             = r.manual_pattern;
+            back.gradient_component_ids     = r.gradient_component_ids;
+            back.gradient_component_weights = r.gradient_component_weights;
+            back.ratio_a                    = r.ratio_a;
+            back.ratio_b                    = r.ratio_b;
+            back.local_z_max_sublayers      = r.local_z_max_sublayers;
+            back.gradient_enabled           = r.gradient_enabled;
+            back.gradient_start             = r.gradient_start;
+            back.gradient_end               = r.gradient_end;
+            back.display_color              = r.display_color;
+            back.ui_mode                    = r.ui_mode;
+            back.custom                     = true;
+        }
+        // Persist into the project config so the slicing pipeline rebuilds the
+        // virtual filaments (Print::apply -> MixedFilamentManager).
+        if (auto* opt = pb->project_config.option<ConfigOptionString>("mixed_filament_definitions", true))
+            opt->value = mgr.serialize_custom_entries();
+    });
+    bSizer39->Add(mixed_btn, 0, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP(4));
 
     ScalableButton* add_btn = new ScalableButton(p->m_panel_filament_title, wxID_ANY, "add_filament");
     add_btn->SetToolTip(_L("Add one filament"));
