@@ -477,6 +477,9 @@ public:
 	static const char *ORCA_DEFAULT_FILAMENT;
     static const char *ORCA_FILAMENT_LIBRARY;
     static const char *ORCA_DEFAULT_FILAMENT_PLACEHOLDER;
+    // Vendor bundle name used by the mixed-color feature to load
+    // filament_compatibility.json (ported from Snapmaker Orca).
+    static const char *SM_BUNDLE;
 
 
     static std::array<Preset::Type, 3>  types_list(PrinterTechnology pt) {

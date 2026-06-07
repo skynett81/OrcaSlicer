@@ -57,6 +57,7 @@ static std::vector<std::string> s_project_options {
 };
 
 //Orca: add custom as default
+const char *PresetBundle::SM_BUNDLE = "Snapmaker";
 const char *PresetBundle::ORCA_DEFAULT_BUNDLE = "Custom";
 const char *PresetBundle::ORCA_DEFAULT_PRINTER_MODEL = "MyKlipper 0.4 nozzle";
 const char *PresetBundle::ORCA_DEFAULT_PRINTER_VARIANT = "0.4";

@@ -339,6 +339,18 @@ set(SLIC3R_GUI_SOURCES
     GUI/MonitorPage.hpp
     GUI/Mouse3DController.cpp
     GUI/Mouse3DController.hpp
+    GUI/MixedFilamentDialog.cpp
+    GUI/MixedFilamentDialog.hpp
+    GUI/MixedGradientSelector.cpp
+    GUI/MixedGradientSelector.hpp
+    GUI/MixedColorMatchPanel.cpp
+    GUI/MixedColorMatchPanel.hpp
+    GUI/MixedColorMatchHelpers.cpp
+    GUI/MixedColorMatchHelpers.hpp
+    GUI/MixedFilamentColorMapPanel.cpp
+    GUI/MixedFilamentColorMapPanel.hpp
+    GUI/MixedFilamentBadge.cpp
+    GUI/MixedFilamentBadge.hpp
     GUI/MsgDialog.cpp
     GUI/MsgDialog.hpp
     GUI/MultiChoiceDialog.hpp
