@@ -4270,6 +4270,39 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
             }
         }
 
+        // 3DPrintForge: sustainability estimate for this print — energy + CO2.
+        // Factors are configurable (AppConfig) with documented defaults; figures
+        // are clearly marked estimates ('~'). PLA cradle-to-gate ~1.6 kgCO2/kg,
+        // typical FDM draw ~100 W, grid ~0.40 kgCO2/kWh (region-dependent).
+        if (total_estimated_time > 0.0f && ps.total_weight > 0.0) {
+            AppConfig* scfg = wxGetApp().app_config;
+            auto cfg_d = [scfg](const char* key, double dflt) -> double {
+                if (scfg == nullptr) return dflt;
+                const std::string v = scfg->get(key);
+                if (v.empty()) return dflt;
+                try { return std::stod(v); } catch (...) { return dflt; }
+            };
+            const double power_w    = cfg_d("sustain_printer_power_w", 100.0);
+            const double co2_per_kg = cfg_d("sustain_filament_co2_per_kg", 1.6);
+            const double co2_grid   = cfg_d("sustain_grid_co2_per_kwh", 0.40);
+            const double energy_kwh = power_w * (double)total_estimated_time / 3600000.0;
+            const double co2_kg     = (ps.total_weight / 1000.0) * co2_per_kg + energy_kwh * co2_grid;
+
+            ImGui::Dummy({ window_padding, window_padding });
+            ImGui::SameLine();
+            imgui.text(_u8L("Energy (est.)") + ":");
+            ImGui::SameLine();
+            ::sprintf(buf, "~%.2f kWh", energy_kwh);
+            imgui.text(buf);
+
+            ImGui::Dummy({ window_padding, window_padding });
+            ImGui::SameLine();
+            imgui.text(_u8L("CO2 (est.)") + ":");
+            ImGui::SameLine();
+            ::sprintf(buf, "~%.2f kg", co2_kg);
+            imgui.text(buf);
+        }
+
         // 3DPrintForge: warn when the configured inventory provider's spool stock
         // does not hold enough filament for this print. The fetch + match runs on a
         // worker thread (once per distinct set of needs) so a slow or unreachable
