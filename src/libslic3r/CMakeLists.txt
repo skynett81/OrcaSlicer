@@ -308,6 +308,8 @@ set(lisbslic3r_sources
     MixedFilament.hpp
     ColorOrderOptimizer.cpp
     ColorOrderOptimizer.hpp
+    ColorLayer.cpp
+    ColorLayer.hpp
     ForgeSpool.cpp
     ForgeSpool.hpp
     ForgeSpoolMatch.cpp

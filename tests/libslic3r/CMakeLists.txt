@@ -11,6 +11,7 @@ add_executable(${_TEST_NAME}_tests
     test_config.cpp
     test_mixed_filament.cpp
     test_color_order.cpp
+    test_color_layer.cpp
     test_forge_spool.cpp
     test_forge_spool_match.cpp
     test_preset_bundle_loading.cpp
