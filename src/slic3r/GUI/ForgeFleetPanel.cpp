@@ -1,8 +1,14 @@
 #include "ForgeFleetPanel.hpp"
 #include "ForgeControlPanel.hpp"
+#include "ForgeCloud.hpp"
 #include "I18N.hpp"
 #include "GUI_App.hpp"
 #include "MainFrame.hpp"
+#include "Plater.hpp"
+#include "PartPlate.hpp"
+#include "libslic3r/Format/bbs_3mf.hpp"
+
+#include <boost/filesystem.hpp>
 
 #include <wx/utils.h>
 
@@ -632,11 +638,66 @@ void ForgeFleetPanel::on_print(wxCommandEvent& /*evt*/)
         wxMessageBox(_L("Pick a printer first."), _L("3DPrintForge Devices"), wxICON_INFORMATION);
         return;
     }
-    // Real gcode-send path comes when we wire Plater export → fleet.
-    // Stub for now so the button is wired and visible.
-    wxMessageBox(wxString::Format(_L("Print queue for %s — not wired yet."),
-                                  wxString::FromUTF8(m_printers[sel].name)),
-                 _L("3DPrintForge Devices"), wxICON_INFORMATION);
+    const std::string printer_id   = m_printers[sel].id;
+    const wxString    printer_name = wxString::FromUTF8(m_printers[sel].name);
+
+    Plater* plater = wxGetApp().plater();
+    if (plater == nullptr)
+        return;
+
+    PartPlate* plate = plater->get_partplate_list().get_curr_plate();
+    if (plate == nullptr || !plate->is_slice_result_valid()) {
+        wxMessageBox(_L("Slice the plate first, then send it to the printer."),
+                     _L("3DPrintForge Devices"), wxICON_INFORMATION);
+        return;
+    }
+    const int plate_idx = plater->get_partplate_list().get_curr_plate_index();
+
+    // Export the sliced plate to a temporary .gcode.3mf, then upload it to the
+    // dashboard which routes it to the chosen printer (any brand) and queues it.
+    namespace fs = boost::filesystem;
+    wxString fname_wx = plater->get_export_gcode_filename(".gcode.3mf", /*only_filename*/ true);
+    std::string fname = fname_wx.empty() ? std::string("print.gcode.3mf") : std::string(fname_wx.ToUTF8());
+    fs::path out_path = fs::temp_directory_path() / ("forge_" + std::to_string(plate_idx) + "_" + fname);
+
+    {
+        wxBusyCursor wait;
+        update_status_bar("Exporting G-code...");
+        plater->export_3mf(out_path,
+                           SaveStrategy::Silence | SaveStrategy::SplitModel | SaveStrategy::WithGcode,
+                           plate_idx);
+    }
+    boost::system::error_code ec;
+    if (!fs::exists(out_path, ec) || fs::file_size(out_path, ec) == 0) {
+        wxMessageBox(_L("Could not export the sliced file."),
+                     _L("3DPrintForge Devices"), wxICON_ERROR);
+        return;
+    }
+
+    CloudProvider* prov = cloud_provider("3dprintforge");
+    if (prov == nullptr) {
+        wxMessageBox(_L("3DPrintForge provider unavailable."),
+                     _L("3DPrintForge Devices"), wxICON_ERROR);
+        fs::remove(out_path, ec);
+        return;
+    }
+
+    CloudJobResult res;
+    {
+        wxBusyCursor wait;
+        update_status_bar("Sending to " + std::string(printer_name.ToUTF8()) + "...");
+        res = prov->send_job(out_path.string(), fname, printer_id, /*auto_queue*/ true);
+    }
+    fs::remove(out_path, ec);
+
+    if (res.ok) {
+        update_status_bar("Sent to " + std::string(printer_name.ToUTF8()));
+        wxMessageBox(wxString::Format(_L("Sent to %s and queued."), printer_name),
+                     _L("3DPrintForge Devices"), wxICON_INFORMATION);
+    } else {
+        wxMessageBox(wxString::Format(_L("Send failed: %s"), wxString::FromUTF8(res.message)),
+                     _L("3DPrintForge Devices"), wxICON_ERROR);
+    }
 }
 
 void ForgeFleetPanel::on_add_printer(wxCommandEvent& /*evt*/)
