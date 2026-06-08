@@ -602,6 +602,8 @@ set(SLIC3R_GUI_SOURCES
     Utils/CalibUtils.hpp
     Utils/ForgeCloudAgent.cpp
     Utils/ForgeCloudAgent.hpp
+    Utils/InventoryProvider.cpp
+    Utils/InventoryProvider.hpp
     Utils/ColorSpaceConvert.cpp
     Utils/ColorSpaceConvert.hpp
     Utils/CrealityPrint.cpp

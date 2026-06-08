@@ -14,8 +14,7 @@
 #include "libslic3r/Geometry/ConvexHull.hpp"
 
 #include "GUI_App.hpp"
-#include "ForgeCloud.hpp"
-#include "slic3r/Utils/ForgeCloudAgent.hpp"
+#include "slic3r/Utils/InventoryProvider.hpp"
 #include <thread>
 #include "MainFrame.hpp"
 #include "Plater.hpp"
@@ -4271,12 +4270,12 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
             }
         }
 
-        // 3DPrintForge: warn when the connected dashboard's spool inventory does
-        // not hold enough filament for this print. The HTTP fetch + match runs on
-        // a worker thread (once per distinct set of needs) so a slow or unreachable
-        // host can never stall the render loop. With no reachable dashboard the
-        // inventory is empty, every filament is "unknown", and nothing is shown —
-        // the warning appears only on a real, matched shortage.
+        // 3DPrintForge: warn when the configured inventory provider's spool stock
+        // does not hold enough filament for this print. The fetch + match runs on a
+        // worker thread (once per distinct set of needs) so a slow or unreachable
+        // host can never stall the render loop. With no provider configured nothing
+        // is fetched; an unreachable one yields an empty inventory where every
+        // filament is "unknown" — the warning appears only on a real matched shortage.
         if (wxGetApp().plater() != nullptr) {
             const std::vector<uint8_t>& mat_used = m_viewer.get_used_extruders_ids();
             const std::vector<std::string> mat_hex =
@@ -4307,14 +4306,14 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
 
             bool need_refresh = false;
             { std::lock_guard<std::mutex> lk(state->mtx); need_refresh = (state->sig != sig); }
-            if (need_refresh && !needs.empty() && !state->running.exchange(true)) {
-                const std::string url = forge_dashboard_url();
-                std::thread([state, needs, sig, url]() {
-                    ForgeCloudAgent agent;
-                    agent.set_server_url(url);
-                    std::vector<ForgeSpool> spools  = agent.list_spools();
+            // Only reach out to an inventory provider that the user has explicitly
+            // configured (provider + url). Standalone slicer => no probe at all.
+            const InventoryConfig icfg = inventory_config();
+            if (need_refresh && !needs.empty() && icfg.configured() && !state->running.exchange(true)) {
+                std::thread([state, needs, sig, icfg]() {
+                    std::vector<ForgeSpool> spools  = fetch_inventory_spools(icfg);
                     std::vector<SpoolMatch>  matches = match_filaments_to_spools(needs, spools);
-                    ForgeCurrency            cur     = agent.get_active_currency();
+                    ForgeCurrency            cur     = fetch_inventory_currency(icfg);
                     {
                         std::lock_guard<std::mutex> lk(state->mtx);
                         state->matches         = std::move(matches);

@@ -20,8 +20,7 @@
 #include "../Utils/WxFontUtils.hpp"
 #include "FilamentBitmapUtils.hpp"
 #include "../Utils/ColorSpaceConvert.hpp"
-#include "ForgeCloud.hpp"
-#include "../Utils/ForgeCloudAgent.hpp"
+#include "../Utils/InventoryProvider.hpp"
 #include <set>
 #ifndef __linux__
 // msw_menuitem_bitmaps is used for MSW and OSX
@@ -623,14 +622,10 @@ wxColourData show_sys_picker_dialog(wxWindow *parent, const wxColourData &clr_da
     // NOT persisted back to the saved custom palette.
     std::set<int> forge_slots;
     {
-        Slic3r::AppConfig* cfg = Slic3r::GUI::wxGetApp().app_config;
-        const bool configured = cfg && (!cfg->get("forge_dashboard_url").empty() ||
-                                        !cfg->get("forge_server_url").empty());
+        const Slic3r::InventoryConfig icfg = Slic3r::inventory_config();
         int slot = (int)colors.size();
-        if (configured && slot < CUSTOM_COLOR_COUNT) {
-            Slic3r::ForgeCloudAgent agent;
-            agent.set_server_url(Slic3r::GUI::forge_dashboard_url());
-            for (const Slic3r::ForgeSpool& sp : agent.list_spools()) {
+        if (icfg.configured() && slot < CUSTOM_COLOR_COUNT) {
+            for (const Slic3r::ForgeSpool& sp : Slic3r::fetch_inventory_spools(icfg)) {
                 if (slot >= CUSTOM_COLOR_COUNT)
                     break;
                 if (sp.color_hex.empty())
