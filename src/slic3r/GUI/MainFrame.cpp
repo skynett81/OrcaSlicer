@@ -1967,6 +1967,8 @@ wxBoxSizer* MainFrame::create_side_tools()
                 wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_SEND_TO_PRINTER));
             else if (m_print_select == eSendToPrinterAll)
                 wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_SEND_TO_PRINTER_ALL));
+            else if (m_print_select == eSendToForge)
+                Slic3r::GUI::forge_pick_printer_and_send();
             /* else if (m_print_select == ePrintMultiMachine)
                  wxPostEvent(m_plater, SimpleEvent(EVT_GLTOOLBAR_PRINT_MULTI_MACHINE));*/
         });
@@ -2175,6 +2177,24 @@ wxBoxSizer* MainFrame::create_side_tools()
                     p->Dismiss();
                 });
                 p->append_button(export_gcode_btn);
+            }
+
+            // 3DPrintForge: brand-agnostic send — pick any fleet printer (Bambu,
+            // Snapmaker, Prusa, Klipper, …) and upload via the dashboard. Offered
+            // for every vendor, unlike the Bambu-only "Send print job" dialog.
+            {
+                SideButton* send_forge_btn = new SideButton(p, _L("Send to 3DPrintForge"), "");
+                send_forge_btn->SetCornerRadius(0);
+                send_forge_btn->Bind(wxEVT_BUTTON, [this, p](wxCommandEvent&) {
+                    m_print_btn->SetLabel(_L("Send to 3DPrintForge"));
+                    m_print_select = eSendToForge;
+                    m_print_enable = get_enable_print_status();
+                    m_print_btn->Enable(m_print_enable);
+                    this->Layout();
+                    fit_tab_labels(); // ORCA on label change
+                    p->Dismiss();
+                });
+                p->append_button(send_forge_btn);
             }
 
             p->Popup(m_print_btn);

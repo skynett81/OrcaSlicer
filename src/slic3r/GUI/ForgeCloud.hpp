@@ -65,6 +65,12 @@ std::string forge_dashboard_url();
 // Persists the URL to AppConfig (both keys, so the fleet panel agrees).
 void        set_forge_dashboard_url(const std::string& url);
 
+// Print-time "Send to 3DPrintForge": fetches the fleet, shows a printer picker,
+// exports the current sliced plate and uploads it to the chosen printer (any
+// brand) via the dashboard, queuing it. Brand-agnostic alternative to the
+// Bambu-only "Send print job" dialog. Reports success/failure to the user.
+void        forge_pick_printer_and_send();
+
 }} // namespace Slic3r::GUI
 
 #endif // slic3r_GUI_ForgeCloud_hpp_

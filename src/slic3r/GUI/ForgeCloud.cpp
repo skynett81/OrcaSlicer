@@ -15,9 +15,22 @@
 #include <wx/filename.h>
 
 #include "GUI_App.hpp"
+#include "Plater.hpp"
+#include "PartPlate.hpp"
+#include "I18N.hpp"
+#include "../Utils/ForgeCloudAgent.hpp"
 #include "libslic3r/AppConfig.hpp"
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Preset.hpp"
+#include "libslic3r/Format/bbs_3mf.hpp"
+
+#include <wx/dialog.h>
+#include <wx/sizer.h>
+#include <wx/stattext.h>
+#include <wx/choice.h>
+#include <wx/button.h>
+#include <wx/msgdlg.h>
+#include <boost/filesystem.hpp>
 
 namespace Slic3r { namespace GUI {
 
@@ -117,6 +130,94 @@ public:
         return r;
     }
 };
+
+// ---------------------------------------------------------------------------
+// Print-time "Send to 3DPrintForge" (brand-agnostic, via the dashboard fleet)
+// ---------------------------------------------------------------------------
+void forge_pick_printer_and_send()
+{
+    Plater* plater = wxGetApp().plater();
+    if (plater == nullptr)
+        return;
+
+    PartPlate* plate = plater->get_partplate_list().get_curr_plate();
+    if (plate == nullptr || !plate->is_slice_result_valid()) {
+        wxMessageBox(_L("Slice the plate first, then send it to a printer."),
+                     _L("Send to 3DPrintForge"), wxICON_INFORMATION);
+        return;
+    }
+
+    // Fetch the fleet from the dashboard so the user picks from THEIR printers.
+    ForgeCloudAgent agent;
+    agent.set_server_url(forge_dashboard_url());
+    std::vector<ForgePrinter> printers = agent.list_printers();
+    if (printers.empty()) {
+        wxMessageBox(wxString::Format(
+                         _L("No printers found. Add one in Devices, and check the server URL (%s)."),
+                         wxString::FromUTF8(forge_dashboard_url())),
+                     _L("Send to 3DPrintForge"), wxICON_INFORMATION);
+        return;
+    }
+
+    // Printer picker.
+    wxDialog dlg(plater, wxID_ANY, _L("Send to 3DPrintForge"));
+    auto* root = new wxBoxSizer(wxVERTICAL);
+    root->Add(new wxStaticText(&dlg, wxID_ANY, _L("Choose a printer:")), 0, wxALL, 12);
+    auto* choice = new wxChoice(&dlg, wxID_ANY);
+    for (const auto& p : printers) {
+        wxString label = wxString::FromUTF8(p.name);
+        if (!p.status.empty()) label += " (" + wxString::FromUTF8(p.status) + ")";
+        choice->Append(label);
+    }
+    choice->SetSelection(0);
+    root->Add(choice, 0, wxEXPAND | wxLEFT | wxRIGHT, 12);
+    auto* btns = new wxBoxSizer(wxHORIZONTAL);
+    btns->AddStretchSpacer();
+    btns->Add(new wxButton(&dlg, wxID_OK,     _L("Send")),   0, wxRIGHT, 8);
+    btns->Add(new wxButton(&dlg, wxID_CANCEL, _L("Cancel")), 0);
+    root->Add(btns, 0, wxEXPAND | wxALL, 12);
+    dlg.SetSizerAndFit(root);
+    if (dlg.ShowModal() != wxID_OK)
+        return;
+
+    const int sel = choice->GetSelection();
+    if (sel < 0 || sel >= (int)printers.size())
+        return;
+    const std::string printer_id   = printers[sel].id;
+    const wxString    printer_name = wxString::FromUTF8(printers[sel].name);
+
+    // Export the sliced plate, upload, queue.
+    namespace fs = boost::filesystem;
+    const int plate_idx = plater->get_partplate_list().get_curr_plate_index();
+    wxString fname_wx = plater->get_export_gcode_filename(".gcode.3mf", /*only_filename*/ true);
+    std::string fname = fname_wx.empty() ? std::string("print.gcode.3mf") : std::string(fname_wx.ToUTF8());
+    fs::path out_path = fs::temp_directory_path() / ("forge_" + std::to_string(plate_idx) + "_" + fname);
+
+    CloudJobResult res;
+    {
+        wxBusyCursor wait;
+        plater->export_3mf(out_path,
+                          SaveStrategy::Silence | SaveStrategy::SplitModel | SaveStrategy::WithGcode,
+                          plate_idx);
+        boost::system::error_code ec;
+        if (!fs::exists(out_path, ec) || fs::file_size(out_path, ec) == 0) {
+            wxMessageBox(_L("Could not export the sliced file."),
+                         _L("Send to 3DPrintForge"), wxICON_ERROR);
+            return;
+        }
+        CloudProvider* prov = cloud_provider("3dprintforge");
+        res = prov ? prov->send_job(out_path.string(), fname, printer_id, /*auto_queue*/ true)
+                   : CloudJobResult{};
+        fs::remove(out_path, ec);
+    }
+
+    if (res.ok)
+        wxMessageBox(wxString::Format(_L("Sent to %s and queued."), printer_name),
+                     _L("Send to 3DPrintForge"), wxICON_INFORMATION);
+    else
+        wxMessageBox(wxString::Format(_L("Send failed: %s"), wxString::FromUTF8(res.message)),
+                     _L("Send to 3DPrintForge"), wxICON_ERROR);
+}
 
 // ---------------------------------------------------------------------------
 // Registry
