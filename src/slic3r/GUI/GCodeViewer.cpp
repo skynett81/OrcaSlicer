@@ -4303,6 +4303,51 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
             imgui.text(buf);
         }
 
+        // 3DPrintForge: pre-print risk hints derived from the engine's per-role
+        // filament usage (overhang perimeters + bridges) plus support presence.
+        // Shown only when there is something to flag; the level is a simple
+        // heuristic on the overhang+bridge share of model filament.
+        {
+            const double risk_overhang_g = used_filament_per_role(erOverhangPerimeter).second;
+            const double risk_bridge_g    = used_filament_per_role(erBridgeInfill).second
+                                          + used_filament_per_role(erInternalBridgeInfill).second;
+            const double risk_support_g   = total_support_used_filament_g;
+            const double risk_model_g     = total_model_used_filament_g;
+            if ((risk_overhang_g > 0.0 || risk_bridge_g > 0.0 || risk_support_g > 0.0) && risk_model_g > 0.0) {
+                const double risk_ratio = (risk_overhang_g + risk_bridge_g) / risk_model_g;
+                const std::string risk_level = risk_ratio > 0.15 ? _u8L("High")
+                                             : risk_ratio > 0.05 ? _u8L("Medium")
+                                             : _u8L("Low");
+                const ImVec4 risk_col = risk_ratio > 0.15 ? ImVec4(0.93f, 0.42f, 0.20f, 1.0f)
+                                      : risk_ratio > 0.05 ? ImVec4(0.95f, 0.77f, 0.06f, 1.0f)
+                                      : ImVec4(0.30f, 0.69f, 0.31f, 1.0f);
+                ImGui::Dummy({ window_padding, window_padding });
+                ImGui::SameLine();
+                imgui.text(_u8L("Print risk") + ":");
+                ImGui::SameLine();
+                ImGui::PushStyleColor(ImGuiCol_Text, risk_col);
+                imgui.text(risk_level);
+                ImGui::PopStyleColor();
+
+                std::string risk_detail;
+                auto add_seg = [&risk_detail](const std::string& label, double g) {
+                    if (g <= 0.0) return;
+                    if (!risk_detail.empty()) risk_detail += " | ";
+                    char seg[48];
+                    ::snprintf(seg, sizeof(seg), "%.0f g", g);
+                    risk_detail += label + " " + seg;
+                };
+                add_seg(_u8L("overhangs"), risk_overhang_g);
+                add_seg(_u8L("bridges"),   risk_bridge_g);
+                add_seg(_u8L("supports"),  risk_support_g);
+                if (!risk_detail.empty()) {
+                    ImGui::Dummy({ window_padding, window_padding });
+                    ImGui::SameLine();
+                    imgui.text(risk_detail);
+                }
+            }
+        }
+
         // 3DPrintForge: warn when the configured inventory provider's spool stock
         // does not hold enough filament for this print. The fetch + match runs on a
         // worker thread (once per distinct set of needs) so a slow or unreachable
