@@ -37,6 +37,19 @@ struct ForgeSpool
     }
 };
 
+// The 3DPrintForge display currency (GET /api/currency).
+struct ForgeCurrency
+{
+    std::string code;   // ISO code, e.g. "NOK", "USD" (empty when unknown)
+    std::string symbol; // display symbol, e.g. "kr", "$" (empty when unknown)
+};
+
+// Parse the JSON body of GET /api/currency: { "active": "NOK", "supported":
+// [{ "code": "NOK", "symbol": "kr", ... }, ...] }. Returns the active currency
+// with its symbol resolved from the supported list. Empty fields on failure;
+// never throws.
+ForgeCurrency parse_forge_currency(const std::string& json_body);
+
 // Parse the JSON body of GET /api/inventory/spools into ForgeSpool entries.
 // Accepts a bare JSON array, or an object wrapping the array under "rows" or
 // "spools". Malformed entries are skipped; a malformed body yields an empty

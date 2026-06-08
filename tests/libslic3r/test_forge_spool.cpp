@@ -88,3 +88,29 @@ TEST_CASE("parse_forge_spools never throws on malformed input", "[ForgeSpool]")
     REQUIRE(mixed.size() == 1);
     REQUIRE(mixed[0].id == 9);
 }
+
+static const char* CURRENCY_SAMPLE = R"({"active":"NOK","supported":[
+  {"code":"USD","symbol":"$","name":"US Dollar","locale":"en-US"},
+  {"code":"NOK","symbol":"kr","name":"Norske kroner","locale":"nb-NO"},
+  {"code":"EUR","symbol":"€","name":"Euro","locale":"de-DE"}]})";
+
+TEST_CASE("parse_forge_currency resolves the active symbol", "[ForgeSpool]")
+{
+    auto c = parse_forge_currency(CURRENCY_SAMPLE);
+    REQUIRE(c.code == "NOK");
+    REQUIRE(c.symbol == "kr");
+}
+
+TEST_CASE("parse_forge_currency handles active-not-in-list and malformed input", "[ForgeSpool]")
+{
+    // active present but not in supported -> code set, symbol empty
+    auto a = parse_forge_currency(R"({"active":"JPY","supported":[{"code":"USD","symbol":"$"}]})");
+    REQUIRE(a.code == "JPY");
+    REQUIRE(a.symbol.empty());
+
+    // malformed / empty -> all empty, never throws
+    REQUIRE(parse_forge_currency("").code.empty());
+    REQUIRE(parse_forge_currency("not json").symbol.empty());
+    REQUIRE(parse_forge_currency("{}").code.empty());
+    REQUIRE(parse_forge_currency(R"({"active":""})").code.empty());
+}

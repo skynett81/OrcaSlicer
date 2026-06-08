@@ -46,6 +46,7 @@ struct ForgeSpoolMatchState
     std::mutex              mtx;
     std::string             sig;       // signature of the needs the matches were computed for
     std::vector<SpoolMatch> matches;
+    std::string             currency_symbol; // dashboard active-currency symbol ("" when unknown)
     std::atomic<bool>       running{false};
 };
 

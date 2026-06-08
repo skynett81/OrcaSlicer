@@ -4174,8 +4174,9 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                 const double pf_all_g = total_model_used_filament_g + total_support_used_filament_g + pf_waste_g;
                 const double pf_waste_pct  = pf_all_g > 0.0 ? (pf_waste_g / pf_all_g) * 100.0 : 0.0;
                 // Default: proportional estimate from the slicer's filament cost.
-                double pf_waste_cost = pf_all_g > 0.0 ? ps.total_cost * (pf_waste_g / pf_all_g) : 0.0;
-                bool   pf_cost_real  = false;
+                double      pf_waste_cost = pf_all_g > 0.0 ? ps.total_cost * (pf_waste_g / pf_all_g) : 0.0;
+                bool        pf_cost_real  = false;
+                std::string pf_cur_sym; // dashboard currency symbol, "" when unknown
                 // Refine with REAL per-gram cost from matched 3DPrintForge spools
                 // when the (async) inventory match is available: price each
                 // filament's purge grams by its matched spool cost and estimate
@@ -4186,6 +4187,7 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                     double real_cost = 0.0, priced_g = 0.0;
                     {
                         std::lock_guard<std::mutex> lk(m_forge_match->mtx);
+                        pf_cur_sym = m_forge_match->currency_symbol;
                         for (const SpoolMatch& mm : m_forge_match->matches) {
                             if (mm.cost_per_gram < 0.0)
                                 continue;
@@ -4211,10 +4213,15 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                 ImGui::SameLine();
                 imgui.text(_u8L("Multi-colour waste") + ":");
                 ImGui::SameLine();
-                // '~' marks a proportional estimate; it is dropped once every wasted
-                // gram is priced from real spool cost.
-                ::sprintf(buf, pf_cost_real ? "%s  (%.0f%%)  %.2f" : "%s  (%.0f%%)  ~%.2f",
-                          pf_waste_weight.c_str(), pf_waste_pct, pf_waste_cost);
+                // Cost token: '~' marks a proportional estimate (dropped once every
+                // wasted gram is priced from real spool cost); prepend the dashboard
+                // currency symbol when known (e.g. "kr 3.50", "$3.50").
+                char pf_cost_tok[48];
+                if (pf_cur_sym.empty())
+                    ::snprintf(pf_cost_tok, sizeof(pf_cost_tok), "%s%.2f", pf_cost_real ? "" : "~", pf_waste_cost);
+                else
+                    ::snprintf(pf_cost_tok, sizeof(pf_cost_tok), "%s%s %.2f", pf_cost_real ? "" : "~", pf_cur_sym.c_str(), pf_waste_cost);
+                ::sprintf(buf, "%s  (%.0f%%)  %s", pf_waste_weight.c_str(), pf_waste_pct, pf_cost_tok);
                 imgui.text(buf);
 
                 // 3DPrintForge: suggest the filament load order that minimises purge.
@@ -4302,10 +4309,12 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                     agent.set_server_url(url);
                     std::vector<ForgeSpool> spools  = agent.list_spools();
                     std::vector<SpoolMatch>  matches = match_filaments_to_spools(needs, spools);
+                    ForgeCurrency            cur     = agent.get_active_currency();
                     {
                         std::lock_guard<std::mutex> lk(state->mtx);
-                        state->matches = std::move(matches);
-                        state->sig     = sig;
+                        state->matches         = std::move(matches);
+                        state->currency_symbol = cur.symbol;
+                        state->sig             = sig;
                     }
                     state->running = false;
                 }).detach();

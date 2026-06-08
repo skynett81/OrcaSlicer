@@ -188,6 +188,16 @@ std::vector<ForgeSpool> ForgeCloudAgent::list_spools(bool include_archived)
     return out;
 }
 
+ForgeCurrency ForgeCloudAgent::get_active_currency()
+{
+    auto cli = make_client(m_server_url);
+    auto res = cli->Get("/api/currency", auth_headers(m_auth.session_token));
+    if (!res || res->status != 200)
+        return {};
+    // Parsing lives in libslic3r (pure + unit-tested).
+    return parse_forge_currency(res->body);
+}
+
 std::optional<std::string> ForgeCloudAgent::start_print(const std::string& printer_id,
                                                         const std::string& gcode_path)
 {

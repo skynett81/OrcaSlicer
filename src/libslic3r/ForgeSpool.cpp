@@ -43,6 +43,31 @@ std::string normalise_hex(std::string hex)
 
 } // namespace
 
+ForgeCurrency parse_forge_currency(const std::string& json_body)
+{
+    ForgeCurrency out;
+    try {
+        json j = json::parse(json_body);
+        if (!j.is_object())
+            return out;
+        out.code = str_or(j, "active");
+        if (out.code.empty())
+            return out;
+        auto it = j.find("supported");
+        if (it != j.end() && it->is_array()) {
+            for (const auto& c : *it) {
+                if (c.is_object() && str_or(c, "code") == out.code) {
+                    out.symbol = str_or(c, "symbol");
+                    break;
+                }
+            }
+        }
+    } catch (const std::exception&) {
+        return {};
+    }
+    return out;
+}
+
 std::vector<ForgeSpool> parse_forge_spools(const std::string& json_body)
 {
     std::vector<ForgeSpool> out;

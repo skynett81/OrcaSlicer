@@ -92,6 +92,10 @@ public:
     // failure; last_error in auth_state holds the reason.
     std::vector<ForgeSpool> list_spools(bool include_archived = false);
 
+    // Fetches the dashboard's active display currency (GET /api/currency).
+    // Empty code/symbol on failure.
+    ForgeCurrency get_active_currency();
+
     // Starts a print job on the named printer. Returns job id on success.
     std::optional<std::string> start_print(const std::string& printer_id,
                                            const std::string& gcode_path);
