@@ -5,6 +5,7 @@
 
 class wxTextCtrl;
 class wxListCtrl;
+class wxChoice;
 
 namespace Slic3r { namespace GUI {
 
@@ -23,8 +24,12 @@ private:
     void on_test(wxCommandEvent& evt);
     void on_save(wxCommandEvent& evt);
 
-    wxTextCtrl* m_url       = nullptr;
-    wxListCtrl* m_providers = nullptr;
+    wxTextCtrl* m_url        = nullptr;
+    wxListCtrl* m_providers  = nullptr;
+    // Inventory (spool stock) provider — drives the slicer's spool-aware features.
+    wxChoice*   m_inv_provider = nullptr;
+    wxTextCtrl* m_inv_url      = nullptr;
+    wxTextCtrl* m_inv_token    = nullptr;
 };
 
 }} // namespace Slic3r::GUI
