@@ -46,7 +46,11 @@ std::string forge_dashboard_url()
         std::string v = cfg->get("forge_server_url"); // fleet panel's key
         if (!v.empty()) return v;
     }
-    return "https://localhost:3443";
+    // Default to the dashboard's plain-HTTP API port. The embedded HTTP client
+    // has no TLS, and the API answers on http://…:3000 with 200 (no forced
+    // HTTPS redirect for /api paths) — matching the fleet agent's own default,
+    // so spool/currency/send features work out of the box without configuration.
+    return "http://127.0.0.1:3000";
 }
 
 void set_forge_dashboard_url(const std::string& url)
