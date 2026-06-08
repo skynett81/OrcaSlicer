@@ -14,6 +14,9 @@
 #include <wx/listctrl.h>
 #include <wx/textdlg.h>
 #include <wx/msgdlg.h>
+#include <wx/dialog.h>
+#include <wx/choice.h>
+#include <wx/textctrl.h>
 #include <wx/statbmp.h>
 #include <wx/mstream.h>
 #include <wx/image.h>
@@ -106,10 +109,16 @@ void ForgeFleetPanel::build_ui()
     m_btn_configure = new wxButton(this, wxID_ANY, _L("Server URL..."));
     m_btn_refresh   = new wxButton(this, wxID_ANY, _L("Refresh"));
     m_btn_print     = new wxButton(this, wxID_ANY, _L("Send G-code"));
+    m_btn_add       = new wxButton(this, wxID_ANY, _L("Add printer..."));
+    m_btn_remove    = new wxButton(this, wxID_ANY, _L("Remove"));
     btn_row->Add(m_btn_login,   0, wxRIGHT, 4);
     btn_row->Add(m_btn_refresh, 0, wxRIGHT, 4);
     btn_row->Add(m_btn_configure, 0);
     leftcol->Add(btn_row, 0, wxTOP, FromDIP(4));
+    auto* btn_row2 = new wxBoxSizer(wxHORIZONTAL);
+    btn_row2->Add(m_btn_add,    0, wxRIGHT, 4);
+    btn_row2->Add(m_btn_remove, 0);
+    leftcol->Add(btn_row2, 0, wxTOP, FromDIP(4));
     leftcol->Add(m_btn_print, 0, wxTOP, FromDIP(4));
     body->Add(leftcol, 0, wxEXPAND | wxRIGHT, FromDIP(10));
 
@@ -308,6 +317,8 @@ void ForgeFleetPanel::build_ui()
     m_btn_configure->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_configure, this);
     m_btn_refresh  ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_refresh, this);
     m_btn_print    ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_print, this);
+    m_btn_add      ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_add_printer, this);
+    m_btn_remove   ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_remove_printer, this);
     m_list->Bind(wxEVT_LIST_ITEM_SELECTED, &ForgeFleetPanel::on_select, this);
     m_btn_pause ->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){ send_control("pause"); });
     m_btn_resume->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){ send_control("resume"); });
@@ -626,6 +637,106 @@ void ForgeFleetPanel::on_print(wxCommandEvent& /*evt*/)
     wxMessageBox(wxString::Format(_L("Print queue for %s — not wired yet."),
                                   wxString::FromUTF8(m_printers[sel].name)),
                  _L("3DPrintForge Devices"), wxICON_INFORMATION);
+}
+
+void ForgeFleetPanel::on_add_printer(wxCommandEvent& /*evt*/)
+{
+    // Small modal form: name + type + IP, plus Bambu-only serial/access code.
+    // The dashboard stores the connection and handles the per-brand protocol.
+    wxDialog dlg(this, wxID_ANY, _L("Add printer"), wxDefaultPosition, wxSize(420, -1));
+    auto* root = new wxBoxSizer(wxVERTICAL);
+    auto* grid = new wxFlexGridSizer(2, FromDIP(8), FromDIP(8));
+    grid->AddGrowableCol(1, 1);
+
+    auto add_row = [&](const wxString& label, wxWindow* ctrl) {
+        grid->Add(new wxStaticText(&dlg, wxID_ANY, label), 0, wxALIGN_CENTER_VERTICAL);
+        grid->Add(ctrl, 1, wxEXPAND);
+    };
+
+    auto* name_ctrl = new wxTextCtrl(&dlg, wxID_ANY);
+    auto* type_ctrl = new wxChoice(&dlg, wxID_ANY);
+    const char* types[] = { "bambu", "moonraker", "klipper", "prusalink",
+                            "creality", "elegoo", "anker", "voron", "ratrig", "qidi" };
+    for (const char* t : types) type_ctrl->Append(wxString::FromUTF8(t));
+    type_ctrl->SetSelection(0);
+    auto* ip_ctrl     = new wxTextCtrl(&dlg, wxID_ANY);
+    ip_ctrl->SetHint("192.168.x.x");
+    auto* model_ctrl  = new wxTextCtrl(&dlg, wxID_ANY);
+    auto* serial_ctrl = new wxTextCtrl(&dlg, wxID_ANY);
+    auto* access_ctrl = new wxTextCtrl(&dlg, wxID_ANY);
+
+    add_row(_L("Name:"),        name_ctrl);
+    add_row(_L("Type:"),        type_ctrl);
+    add_row(_L("IP address:"),  ip_ctrl);
+    add_row(_L("Model:"),       model_ctrl);
+    add_row(_L("Serial (Bambu):"),      serial_ctrl);
+    add_row(_L("Access code (Bambu):"), access_ctrl);
+
+    // Bambu-only fields are only relevant for type == bambu.
+    auto sync_bambu = [&]() {
+        const bool bambu = type_ctrl->GetStringSelection() == "bambu";
+        serial_ctrl->Enable(bambu);
+        access_ctrl->Enable(bambu);
+    };
+    sync_bambu();
+    type_ctrl->Bind(wxEVT_CHOICE, [&](wxCommandEvent&) { sync_bambu(); });
+
+    root->Add(grid, 1, wxEXPAND | wxALL, FromDIP(12));
+    auto* btns = new wxBoxSizer(wxHORIZONTAL);
+    btns->AddStretchSpacer();
+    btns->Add(new wxButton(&dlg, wxID_OK,     _L("Add")),    0, wxRIGHT, 8);
+    btns->Add(new wxButton(&dlg, wxID_CANCEL, _L("Cancel")), 0);
+    root->Add(btns, 0, wxEXPAND | wxLEFT | wxRIGHT | wxBOTTOM, FromDIP(12));
+    dlg.SetSizerAndFit(root);
+
+    if (dlg.ShowModal() != wxID_OK) return;
+
+    ForgePrinterConfig cfg;
+    cfg.name        = name_ctrl->GetValue().ToStdString();
+    cfg.type        = type_ctrl->GetStringSelection().ToStdString();
+    cfg.ip          = ip_ctrl->GetValue().ToStdString();
+    cfg.model       = model_ctrl->GetValue().ToStdString();
+    if (cfg.type == "bambu") {
+        cfg.serial      = serial_ctrl->GetValue().ToStdString();
+        cfg.access_code = access_ctrl->GetValue().ToStdString();
+    }
+    if (cfg.name.empty()) {
+        wxMessageBox(_L("A name is required."), _L("Add printer"), wxICON_INFORMATION);
+        return;
+    }
+
+    update_status_bar("Adding printer...");
+    auto id = m_agent->add_printer(cfg);
+    if (id.has_value()) {
+        update_status_bar("Added " + cfg.name);
+        refresh_printer_list();
+    } else {
+        wxMessageBox(wxString::Format(_L("Could not add the printer: %s"),
+                                      wxString::FromUTF8(m_agent->auth_state().last_error)),
+                     _L("Add printer"), wxICON_ERROR);
+    }
+}
+
+void ForgeFleetPanel::on_remove_printer(wxCommandEvent& /*evt*/)
+{
+    long sel = m_list->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+    if (sel < 0 || sel >= (long)m_printers.size()) {
+        wxMessageBox(_L("Pick a printer first."), _L("3DPrintForge Devices"), wxICON_INFORMATION);
+        return;
+    }
+    const std::string id   = m_printers[sel].id;
+    const wxString     name = wxString::FromUTF8(m_printers[sel].name);
+    if (wxMessageBox(wxString::Format(_L("Remove printer \"%s\" from the fleet?"), name),
+                     _L("Remove printer"), wxYES_NO | wxICON_QUESTION) != wxYES)
+        return;
+    if (m_agent->delete_printer(id)) {
+        update_status_bar("Removed " + std::string(name.ToUTF8()));
+        refresh_printer_list();
+    } else {
+        wxMessageBox(wxString::Format(_L("Could not remove the printer: %s"),
+                                      wxString::FromUTF8(m_agent->auth_state().last_error)),
+                     _L("Remove printer"), wxICON_ERROR);
+    }
 }
 
 void ForgeFleetPanel::refresh_printer_list()

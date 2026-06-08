@@ -43,6 +43,8 @@ private:
     void on_configure(wxCommandEvent& evt);
     void on_login(wxCommandEvent& evt);
     void on_print(wxCommandEvent& evt);
+    void on_add_printer(wxCommandEvent& evt);
+    void on_remove_printer(wxCommandEvent& evt);
     void on_timer(wxTimerEvent& evt);
 
     void refresh_printer_list();
@@ -61,6 +63,8 @@ private:
     wxButton*     m_btn_configure  = nullptr;
     wxButton*     m_btn_login      = nullptr;
     wxButton*     m_btn_print      = nullptr;
+    wxButton*     m_btn_add        = nullptr;
+    wxButton*     m_btn_remove     = nullptr;
     wxStaticText* m_detail_label   = nullptr;
     wxStaticBitmap* m_camera       = nullptr;
     wxButton*     m_btn_pause       = nullptr;
