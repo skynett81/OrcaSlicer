@@ -24,6 +24,20 @@ struct ForgePrinter {
     std::string error_message;
 };
 
+// Connection config for adding/configuring a printer on the dashboard
+// (POST/PUT /api/printers). Matches the dashboard PRINTER_SCHEMA: name is
+// required; ip is IPv4; type is one of the supported brands; serial/access_code
+// are Bambu-specific.
+struct ForgePrinterConfig {
+    std::string id;          // optional; dashboard derives from name when empty
+    std::string name;
+    std::string ip;
+    std::string type;        // bambu|moonraker|klipper|prusalink|creality|elegoo|anker|voron|ratrig|qidi
+    std::string serial;      // Bambu
+    std::string access_code; // Bambu
+    std::string model;
+};
+
 // Per-toolhead state for multi-extruder printers (e.g. Snapmaker U1).
 struct ForgeToolState {
     double      temp     = -1;
@@ -86,6 +100,13 @@ public:
     // Fetches the printer roster. Returns empty list on failure;
     // last_error in auth_state holds the reason.
     std::vector<ForgePrinter> list_printers();
+
+    // Add a printer to the dashboard fleet (POST /api/printers). Returns the new
+    // printer id on success, std::nullopt on failure (last_error set).
+    std::optional<std::string> add_printer(const ForgePrinterConfig& cfg);
+
+    // Remove a printer from the fleet (DELETE /api/printers/{id}). True on success.
+    bool delete_printer(const std::string& printer_id);
 
     // Fetches the filament spool inventory (GET /api/inventory/spools).
     // By default only active (non-archived) spools are returned. Empty list on

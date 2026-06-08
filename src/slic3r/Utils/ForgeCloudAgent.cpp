@@ -198,6 +198,43 @@ ForgeCurrency ForgeCloudAgent::get_active_currency()
     return parse_forge_currency(res->body);
 }
 
+std::optional<std::string> ForgeCloudAgent::add_printer(const ForgePrinterConfig& cfg)
+{
+    auto cli = make_client(m_server_url);
+    json body = { { "name", cfg.name } };
+    if (!cfg.id.empty())          body["id"]          = cfg.id;
+    if (!cfg.ip.empty())          body["ip"]          = cfg.ip;
+    if (!cfg.type.empty())        body["type"]        = cfg.type;
+    if (!cfg.serial.empty())      body["serial"]      = cfg.serial;
+    if (!cfg.access_code.empty()) body["access_code"] = cfg.access_code;
+    if (!cfg.model.empty())       body["model"]       = cfg.model;
+
+    auto res = cli->Post("/api/printers", auth_headers(m_auth.session_token),
+                         body.dump(), "application/json");
+    if (!res || res->status >= 400) {
+        m_auth.last_error = res ? ("HTTP " + std::to_string(res->status) + ": " + res->body)
+                                : "Cannot reach server";
+        return std::nullopt;
+    }
+    try {
+        auto j = json::parse(res->body);
+        if (j.contains("id")) return j["id"].get<std::string>();
+    } catch (...) {}
+    return cfg.id.empty() ? std::string{} : cfg.id;
+}
+
+bool ForgeCloudAgent::delete_printer(const std::string& printer_id)
+{
+    auto cli = make_client(m_server_url);
+    auto res = cli->Delete(("/api/printers/" + printer_id).c_str(),
+                           auth_headers(m_auth.session_token));
+    if (!res || res->status >= 400) {
+        m_auth.last_error = res ? ("HTTP " + std::to_string(res->status)) : "Cannot reach server";
+        return false;
+    }
+    return true;
+}
+
 std::optional<std::string> ForgeCloudAgent::start_print(const std::string& printer_id,
                                                         const std::string& gcode_path)
 {
