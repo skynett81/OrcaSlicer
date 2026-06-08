@@ -4209,9 +4209,14 @@ void GCodeViewer::render_legend(float &legend_height, int canvas_width, int canv
                     }
                 }
                 const std::string pf_waste_weight = format_compact_weight((float)pf_waste_g, imperial_units);
+                // On IDEX / multi-nozzle prints with each filament on its own nozzle
+                // there is no inter-colour purge (flushed == 0); the only "waste" is
+                // the prime tower. Label it so the IDEX advantage is explicit.
+                const bool pf_prime_only = m_nozzle_nums > 1 && total_flushed_filament_g <= 0.01
+                                           && total_wipe_tower_used_filament_g > 0.0;
                 ImGui::Dummy({ window_padding, window_padding });
                 ImGui::SameLine();
-                imgui.text(_u8L("Multi-colour waste") + ":");
+                imgui.text((pf_prime_only ? _u8L("Prime only / no purge") : _u8L("Multi-colour waste")) + ":");
                 ImGui::SameLine();
                 // Cost token: '~' marks a proportional estimate (dropped once every
                 // wasted gram is priced from real spool cost); prepend the dashboard
