@@ -43,6 +43,46 @@ std::string normalise_hex(std::string hex)
 
 } // namespace
 
+std::vector<ForgeSpool> parse_spoolman_spools(const std::string& json_body)
+{
+    std::vector<ForgeSpool> out;
+    try {
+        json j = json::parse(json_body);
+        if (!j.is_array())
+            return out;
+        out.reserve(j.size());
+        for (const auto& s : j) {
+            if (!s.is_object())
+                continue;
+            ForgeSpool sp;
+            sp.id          = int_or(s, "id");
+            sp.remaining_g = num_or(s, "remaining_weight");
+            sp.location    = str_or(s, "location");
+            auto ar = s.find("archived");
+            sp.archived    = (ar != s.end() && ar->is_boolean()) ? ar->get<bool>() : false;
+
+            auto fit = s.find("filament");
+            if (fit != s.end() && fit->is_object()) {
+                const json& f = *fit;
+                sp.material     = str_or(f, "material");
+                sp.color_hex    = normalise_hex(str_or(f, "color_hex"));
+                sp.color_name   = str_or(f, "name");
+                sp.profile_name = str_or(f, "name");
+                sp.density      = num_or(f, "density");
+                sp.initial_g    = num_or(f, "weight"); // full spool weight (g)
+                sp.cost         = num_or(f, "price");  // full spool price
+                auto vit = f.find("vendor");
+                if (vit != f.end() && vit->is_object())
+                    sp.vendor = str_or(*vit, "name");
+            }
+            out.push_back(std::move(sp));
+        }
+    } catch (const std::exception&) {
+        return {};
+    }
+    return out;
+}
+
 ForgeCurrency parse_forge_currency(const std::string& json_body)
 {
     ForgeCurrency out;

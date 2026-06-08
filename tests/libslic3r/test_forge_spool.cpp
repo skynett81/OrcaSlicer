@@ -89,6 +89,51 @@ TEST_CASE("parse_forge_spools never throws on malformed input", "[ForgeSpool]")
     REQUIRE(mixed[0].id == 9);
 }
 
+static const char* SPOOLMAN_SAMPLE = R"([
+  {"id":3,"remaining_weight":740.5,"used_weight":259.5,"location":"Shelf A","archived":false,
+   "filament":{"name":"Galaxy Black","material":"PLA","color_hex":"1A1A1A","density":1.24,
+               "weight":1000,"price":210,"vendor":{"name":"Polymaker"}}},
+  {"id":4,"remaining_weight":null,"filament":{"material":"PETG","color_hex":"#00FF00"}}
+])";
+
+TEST_CASE("parse_spoolman_spools maps the Spoolman shape onto ForgeSpool", "[ForgeSpool]")
+{
+    auto spools = parse_spoolman_spools(SPOOLMAN_SAMPLE);
+    REQUIRE(spools.size() == 2);
+
+    const ForgeSpool& a = spools[0];
+    REQUIRE(a.id == 3);
+    REQUIRE(a.material == "PLA");
+    REQUIRE(a.color_hex == "1A1A1A");
+    REQUIRE(a.color_name == "Galaxy Black");
+    REQUIRE_THAT(a.remaining_g, Catch::Matchers::WithinAbs(740.5, 0.001));
+    REQUIRE_THAT(a.initial_g, Catch::Matchers::WithinAbs(1000.0, 0.001));   // filament.weight
+    REQUIRE_THAT(a.cost, Catch::Matchers::WithinAbs(210.0, 0.001));         // filament.price
+    REQUIRE_THAT(a.density, Catch::Matchers::WithinAbs(1.24, 0.001));
+    REQUIRE(a.vendor == "Polymaker");
+    REQUIRE(a.location == "Shelf A");
+    REQUIRE_FALSE(a.archived);
+    REQUIRE_THAT(a.cost_per_gram(), Catch::Matchers::WithinAbs(0.21, 1e-6)); // 210/1000
+
+    const ForgeSpool& b = spools[1];
+    REQUIRE(b.id == 4);
+    REQUIRE(b.material == "PETG");
+    REQUIRE(b.color_hex == "00FF00");        // leading '#' stripped
+    REQUIRE(b.remaining_g == -1.0);           // null -> unknown
+    REQUIRE(b.cost == -1.0);
+    REQUIRE(b.vendor.empty());
+}
+
+TEST_CASE("parse_spoolman_spools never throws on malformed input", "[ForgeSpool]")
+{
+    REQUIRE(parse_spoolman_spools("").empty());
+    REQUIRE(parse_spoolman_spools("{}").empty());          // object, not array
+    REQUIRE(parse_spoolman_spools("not json").empty());
+    auto mixed = parse_spoolman_spools(R"([5, {"id":6}])"); // non-objects skipped
+    REQUIRE(mixed.size() == 1);
+    REQUIRE(mixed[0].id == 6);
+}
+
 static const char* CURRENCY_SAMPLE = R"({"active":"NOK","supported":[
   {"code":"USD","symbol":"$","name":"US Dollar","locale":"en-US"},
   {"code":"NOK","symbol":"kr","name":"Norske kroner","locale":"nb-NO"},

@@ -4,7 +4,39 @@
 #include "ForgeCloudAgent.hpp"
 #include "libslic3r/AppConfig.hpp"
 
+#include <httplib.h>
+#include <regex>
+
 namespace Slic3r {
+
+namespace {
+
+// Plain HTTP client for a Spoolman base URL (Spoolman is typically self-hosted
+// over http on a local port). Mirrors the ForgeCloudAgent client setup.
+std::vector<ForgeSpool> fetch_spoolman(const InventoryConfig& cfg)
+{
+    std::string host = cfg.url;
+    int         port = 80;
+    std::smatch m;
+    std::regex  re(R"(^(https?)://([^:/]+)(?::(\d+))?)");
+    if (std::regex_search(cfg.url, m, re)) {
+        host = m[2].str();
+        const bool ssl = (m[1].str() == "https");
+        port = m[3].matched ? std::stoi(m[3].str()) : (ssl ? 443 : 80);
+    }
+    httplib::Client cli(host, port);
+    cli.set_connection_timeout(3, 0);
+    cli.set_read_timeout(8, 0);
+    httplib::Headers headers;
+    if (!cfg.token.empty())
+        headers.insert({ "Authorization", "Bearer " + cfg.token });
+    auto res = cli.Get("/api/v1/spool", headers);
+    if (!res || res->status != 200)
+        return {};
+    return parse_spoolman_spools(res->body);
+}
+
+} // namespace
 
 InventoryConfig inventory_config()
 {
@@ -44,7 +76,8 @@ std::vector<ForgeSpool> fetch_inventory_spools(const InventoryConfig& cfg)
         agent.set_server_url(cfg.url);
         return agent.list_spools();
     }
-    // Other providers (e.g. "spoolman") are added behind this same dispatch.
+    if (cfg.provider == "spoolman")
+        return fetch_spoolman(cfg);
     return {};
 }
 

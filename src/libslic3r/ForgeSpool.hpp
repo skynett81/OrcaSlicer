@@ -56,6 +56,13 @@ ForgeCurrency parse_forge_currency(const std::string& json_body);
 // vector (never throws).
 std::vector<ForgeSpool> parse_forge_spools(const std::string& json_body);
 
+// Parse the JSON body of Spoolman's GET /api/v1/spool (a bare array of spool
+// objects, each with a nested "filament" carrying name/material/color_hex/
+// density/weight/price and a nested "vendor"). Maps Spoolman's shape onto
+// ForgeSpool (cost <- filament.price, initial_g <- filament.weight). Tolerant of
+// nulls/missing fields; never throws.
+std::vector<ForgeSpool> parse_spoolman_spools(const std::string& json_body);
+
 } // namespace Slic3r
 
 #endif
