@@ -324,6 +324,8 @@ set(lisbslic3r_sources
     ForgeFilamentManager.hpp
     ForgeCalibration.cpp
     ForgeCalibration.hpp
+    ForgeAccount.cpp
+    ForgeAccount.hpp
     filament_mixer.cpp
     filament_mixer.h
     filament_mixer_model.h
