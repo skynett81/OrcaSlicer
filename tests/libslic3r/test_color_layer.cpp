@@ -108,6 +108,51 @@ TEST_CASE("planner reproduces a greyscale ramp end-to-end", "[ColorLayer]")
     REQUIRE(h_grey < h_white);
 }
 
+TEST_CASE("downsample_to_color_grid: invalid input -> empty", "[ColorLayer]")
+{
+    int w = -1, h = -1;
+    REQUIRE(downsample_to_color_grid(nullptr, 4, 4, 2, w, h).empty());
+    std::vector<uint8_t> px(4 * 4 * 4, 0);
+    REQUIRE(downsample_to_color_grid(px.data(), 0, 4, 2, w, h).empty());
+    REQUIRE(downsample_to_color_grid(px.data(), 4, 4, 0, w, h).empty());
+}
+
+TEST_CASE("downsample_to_color_grid: solid colour + aspect + no upscale", "[ColorLayer]")
+{
+    // 4x4 solid red.
+    std::vector<uint8_t> red(4 * 4 * 4);
+    for (int i = 0; i < 4 * 4; ++i) { red[i*4+0]=255; red[i*4+1]=0; red[i*4+2]=0; red[i*4+3]=255; }
+
+    int w = 0, h = 0;
+    auto g = downsample_to_color_grid(red.data(), 4, 4, 2, w, h);
+    REQUIRE(w == 2); REQUIRE(h == 2);
+    REQUIRE(g.size() == 4);
+    for (const auto& c : g) { REQUIRE(c.r == 255.0); REQUIRE(c.g == 0.0); REQUIRE(c.b == 0.0); }
+
+    // No upscaling: 4x4 with max_dim 10 stays 4x4.
+    int w2 = 0, h2 = 0;
+    auto g2 = downsample_to_color_grid(red.data(), 4, 4, 10, w2, h2);
+    REQUIRE(w2 == 4); REQUIRE(h2 == 4);
+
+    // Aspect preserved: 8x4 -> longest 8 to max_dim 4 -> 4x2.
+    std::vector<uint8_t> wide(8 * 4 * 4, 200);
+    int w3 = 0, h3 = 0;
+    downsample_to_color_grid(wide.data(), 8, 4, 4, w3, h3);
+    REQUIRE(w3 == 4); REQUIRE(h3 == 2);
+}
+
+TEST_CASE("downsample_to_color_grid: box-averages colours", "[ColorLayer]")
+{
+    // 2x1: red, blue -> 1x1 average = (127.5, 0, 127.5).
+    std::vector<uint8_t> px = { 255,0,0,255,  0,0,255,255 };
+    int w = 0, h = 0;
+    auto g = downsample_to_color_grid(px.data(), 2, 1, 1, w, h);
+    REQUIRE(w == 1); REQUIRE(h == 1);
+    REQUIRE_THAT(g[0].r, WithinAbs(127.5, 0.01));
+    REQUIRE_THAT(g[0].g, WithinAbs(0.0, 0.01));
+    REQUIRE_THAT(g[0].b, WithinAbs(127.5, 0.01));
+}
+
 TEST_CASE("its_from_heightmap rejects invalid input", "[ColorLayer]")
 {
     REQUIRE(its_from_heightmap({}, 0, 0, 1.0).vertices.empty());

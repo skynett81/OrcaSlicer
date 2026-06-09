@@ -68,6 +68,15 @@ std::vector<ColorLayerRGB> height_palette(const std::vector<ColorLayerFilament>&
 // shorter print). Returns 0 for an empty palette.
 int pick_height(const ColorLayerRGB& target, const std::vector<ColorLayerRGB>& palette);
 
+// Box-average downsample an 8-bit RGBA image (row-major, 4 bytes/pixel) of size
+// src_w x src_h into a grid of ColorLayerRGB no larger than `max_dim` on its
+// longest side (aspect preserved, both dims >= 1). The grid feeds
+// generate_color_layer(); the GUI just decodes an image to RGBA and calls this.
+// out_w/out_h receive the result dimensions. Empty grid on invalid input.
+std::vector<ColorLayerRGB> downsample_to_color_grid(const uint8_t* rgba,
+                                                    int src_w, int src_h, int max_dim,
+                                                    int& out_w, int& out_h);
+
 } // namespace Slic3r
 
 #endif

@@ -74,6 +74,44 @@ std::vector<ColorLayerRGB> height_palette(const std::vector<ColorLayerFilament>&
     return palette;
 }
 
+std::vector<ColorLayerRGB> downsample_to_color_grid(const uint8_t* rgba,
+                                                    int src_w, int src_h, int max_dim,
+                                                    int& out_w, int& out_h)
+{
+    out_w = out_h = 0;
+    if (rgba == nullptr || src_w < 1 || src_h < 1 || max_dim < 1)
+        return {};
+
+    // Scale the longest side to max_dim (no upscaling), preserve aspect, >= 1.
+    double scale = 1.0;
+    const int longest = std::max(src_w, src_h);
+    if (longest > max_dim)
+        scale = (double)max_dim / (double)longest;
+    out_w = std::max(1, (int)std::lround(src_w * scale));
+    out_h = std::max(1, (int)std::lround(src_h * scale));
+
+    std::vector<ColorLayerRGB> grid((size_t)out_w * out_h);
+    for (int oy = 0; oy < out_h; ++oy) {
+        const int y0 = (int)((double)oy * src_h / out_h);
+        const int y1 = std::max(y0 + 1, (int)((double)(oy + 1) * src_h / out_h));
+        for (int ox = 0; ox < out_w; ++ox) {
+            const int x0 = (int)((double)ox * src_w / out_w);
+            const int x1 = std::max(x0 + 1, (int)((double)(ox + 1) * src_w / out_w));
+            double r = 0, g = 0, b = 0;
+            long   n = 0;
+            for (int y = y0; y < y1 && y < src_h; ++y)
+                for (int x = x0; x < x1 && x < src_w; ++x) {
+                    const uint8_t* p = rgba + ((size_t)y * src_w + x) * 4;
+                    r += p[0]; g += p[1]; b += p[2];
+                    ++n;
+                }
+            ColorLayerRGB& c = grid[(size_t)oy * out_w + ox];
+            if (n > 0) { c.r = r / n; c.g = g / n; c.b = b / n; }
+        }
+    }
+    return grid;
+}
+
 int pick_height(const ColorLayerRGB& target, const std::vector<ColorLayerRGB>& palette)
 {
     int    best_h    = 0;
