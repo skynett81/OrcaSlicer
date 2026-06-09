@@ -46,6 +46,22 @@ TEST_CASE("find_best_calibration prefers more specific matches", "[ForgeCalibrat
     REQUIRE(find_best_calibration(records, "voron", -1, "PLA", "Bambu", 0.4) == -1);
 }
 
+TEST_CASE("per-spool calibration is printer-independent", "[ForgeCalibration]")
+{
+    std::vector<ForgeCalibrationRecord> records = {
+        rec("u1", "PLA", "Bambu", 0.4, 0.95),                  // printer-level on u1
+        rec("u1", "PLA", "Bambu", 0.4, 0.99, /*spool=*/7),     // spool 7, saved on u1
+    };
+    // Spool 7 mounted on a DIFFERENT printer (p2s) still matches its record.
+    int i = find_best_calibration(records, "p2s", /*spool=*/7, "PLA", "Bambu", 0.6);
+    REQUIRE(i == 1);
+    REQUIRE(records[i].flow_ratio == Catch::Approx(0.99));
+
+    // Even with mismatched material/vendor, the physical spool wins.
+    i = find_best_calibration(records, "voron", /*spool=*/7, "PETG", "", -1);
+    REQUIRE(i == 1);
+}
+
 TEST_CASE("nozzle is a wildcard when unknown on either side", "[ForgeCalibration]")
 {
     std::vector<ForgeCalibrationRecord> records = {

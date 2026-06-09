@@ -33,14 +33,17 @@ int match_score(const ForgeCalibrationRecord& r,
                 const std::string&            vendor,
                 double                        nozzle_mm)
 {
+    // 1. Exact spool match wins outright, and is PRINTER-INDEPENDENT: a physical
+    //    spool's calibration travels with the spool to whatever printer it is
+    //    mounted on (per-spool calibration). Material/printer are not required.
+    if (target_spool_id >= 0 && r.spool_id == target_spool_id)
+        return 100;
+
+    // 2. Otherwise fall back to printer + material matching.
     if (!ieq(r.printer_id, printer_id))
         return 0;
     if (!ieq(r.material, material))
         return 0;
-
-    // 1. exact spool match wins outright.
-    if (target_spool_id >= 0 && r.spool_id == target_spool_id)
-        return 100;
 
     if (!nozzle_matches(r.nozzle_mm, nozzle_mm))
         return 0;

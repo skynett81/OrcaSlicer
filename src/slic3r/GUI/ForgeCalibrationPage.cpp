@@ -4,13 +4,18 @@
 #include "I18N.hpp"
 
 #include "slic3r/Utils/ForgeCalibrationProvider.hpp"
+#include "slic3r/Utils/InventoryProvider.hpp"
 #include "libslic3r/ForgeCalibration.hpp"
 
 #include <wx/sizer.h>
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 #include <wx/button.h>
+#include <wx/choice.h>
 #include <wx/font.h>
+
+#include <algorithm>
+#include <cctype>
 
 #include <sstream>
 #include <iomanip>
@@ -83,6 +88,16 @@ ForgeCalibrationPage::ForgeCalibrationPage(wxWindow* parent)
                             wxTE_MULTILINE | wxTE_READONLY | wxTE_DONTWRAP);
     root->Add(m_list, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, side);
 
+    // Per-spool: tie the calibration to a physical spool from inventory, so it
+    // follows that spool to whatever printer it is mounted on. Populated on
+    // Refresh (needs the inventory server).
+    auto* spool_row = new wxBoxSizer(wxHORIZONTAL);
+    spool_row->Add(new wxStaticText(this, wxID_ANY, _L("Tie to spool:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+    m_spool_choice = new wxChoice(this, wxID_ANY);
+    spool_row->Add(m_spool_choice, 1, wxALIGN_CENTER_VERTICAL);
+    root->Add(spool_row, 0, wxLEFT | wxRIGHT | wxTOP | wxEXPAND, side);
+    m_spool_choice->Bind(wxEVT_CHOICE, [this](wxCommandEvent&) { this->refresh(false); });
+
     auto* btns = new wxBoxSizer(wxHORIZONTAL);
     m_apply = new wxButton(this, wxID_ANY, _L("Apply to filament preset"));
     auto* save = new wxButton(this, wxID_ANY, _L("Save current settings"));
@@ -122,11 +137,21 @@ void ForgeCalibrationPage::refresh(bool include_dashboard)
     }
     m_context->SetLabel(_L("Active: ") + c);
 
+    // Refresh the inventory spool list only on an explicit (network) refresh.
+    if (include_dashboard) {
+        const InventoryConfig icfg = inventory_config();
+        m_spools = icfg.configured() ? fetch_inventory_spools(icfg) : std::vector<ForgeSpool>{};
+    }
+    populate_spool_choice(ctx.material);
+    const int spool = selected_spool_id();
+
     const std::vector<ForgeCalibrationRecord> records =
         include_dashboard ? load_calibration_records() : load_cached_calibration_records();
-    const int best = find_best_calibration(records, ctx.printer, -1, ctx.material, ctx.vendor, ctx.nozzle);
+    const int best = find_best_calibration(records, ctx.printer, spool, ctx.material, ctx.vendor, ctx.nozzle);
     if (best >= 0) {
-        m_best->SetLabel(_L("Best match: ") + forge_calibration_summary(records[best]));
+        const bool per_spool = spool >= 0 && records[best].spool_id == spool;
+        m_best->SetLabel((per_spool ? _L("Best match (this spool): ") : _L("Best match: "))
+                         + forge_calibration_summary(records[best]));
         m_apply->Enable(records[best].has_any());
     } else {
         m_best->SetLabel(_L("No saved calibration for this printer + filament yet — "
@@ -137,7 +162,11 @@ void ForgeCalibrationPage::refresh(bool include_dashboard)
     std::ostringstream ss;
     int shown = 0;
     for (const auto& r : records) {
-        if (r.printer_id != ctx.printer) continue;
+        // This printer's records, plus any record bound to the selected spool
+        // (which travels across printers).
+        const bool for_this_printer = r.printer_id == ctx.printer;
+        const bool for_this_spool   = spool >= 0 && r.spool_id == spool;
+        if (!for_this_printer && !for_this_spool) continue;
         ss << r.material;
         if (!r.vendor.empty()) ss << " (" << r.vendor << ")";
         if (r.nozzle_mm > 0) { ss << " " << std::fixed << std::setprecision(1) << r.nozzle_mm << "mm"; }
@@ -158,7 +187,7 @@ void ForgeCalibrationPage::on_apply(wxCommandEvent&)
 {
     const ForgeCaliContext ctx = forge_current_calibration_context();
     const std::vector<ForgeCalibrationRecord> records = load_cached_calibration_records();
-    const int best = find_best_calibration(records, ctx.printer, -1, ctx.material, ctx.vendor, ctx.nozzle);
+    const int best = find_best_calibration(records, ctx.printer, selected_spool_id(), ctx.material, ctx.vendor, ctx.nozzle);
     if (best < 0 || !records[best].has_any()) {
         wxMessageBox(_L("No saved calibration to apply."), _L("Fleet Calibration"), wxOK | wxICON_INFORMATION, this);
         return;
@@ -177,18 +206,68 @@ void ForgeCalibrationPage::on_save(wxCommandEvent&)
         wxMessageBox(_L("Select a printer and filament first."), _L("Fleet Calibration"), wxOK | wxICON_INFORMATION, this);
         return;
     }
-    const ForgeCalibrationRecord rec = forge_capture_current_calibration(ctx);
+    ForgeCalibrationRecord rec = forge_capture_current_calibration(ctx);
     if (!rec.has_any()) {
         wxMessageBox(_L("The current filament has no flow ratio, pressure advance or "
                         "max volumetric speed set to save."),
                      _L("Fleet Calibration"), wxOK | wxICON_INFORMATION, this);
         return;
     }
+    // Per-spool: bind the calibration to the chosen physical spool, if any.
+    rec.spool_id = selected_spool_id();
+
     const bool ok = save_calibration_record(rec);
     refresh();
-    wxMessageBox(ok ? _L("Saved: ") + forge_calibration_summary(rec)
+    wxString what = (rec.spool_id >= 0) ? _L("Saved for this spool: ") : _L("Saved: ");
+    wxMessageBox(ok ? what + forge_calibration_summary(rec)
                     : _L("Could not write the calibration cache."),
                  _L("Fleet Calibration"), wxOK | (ok ? wxICON_INFORMATION : wxICON_ERROR), this);
+}
+
+void ForgeCalibrationPage::populate_spool_choice(const std::string& material)
+{
+    if (m_spool_choice == nullptr)
+        return;
+    const int prev = selected_spool_id();
+
+    auto lower = [](std::string s) {
+        std::transform(s.begin(), s.end(), s.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+        return s;
+    };
+
+    m_spool_choice->Clear();
+    m_choice_spool_ids.clear();
+    m_spool_choice->Append(_L("Whole filament (no specific spool)"));
+    m_choice_spool_ids.push_back(-1);
+
+    for (const ForgeSpool& s : m_spools) {
+        if (s.archived)
+            continue;
+        if (!material.empty() && !s.material.empty() && lower(s.material) != lower(material))
+            continue;
+        wxString label = s.material;
+        if (!s.color_name.empty()) label += " " + s.color_name;
+        if (s.remaining_g >= 0)    label += wxString::Format(" (%.0f g)", s.remaining_g);
+        if (!s.location.empty())   label += " @" + s.location;
+        m_spool_choice->Append(label);
+        m_choice_spool_ids.push_back(s.id);
+    }
+
+    int sel = 0;
+    for (size_t i = 0; i < m_choice_spool_ids.size(); ++i)
+        if (m_choice_spool_ids[i] == prev) { sel = static_cast<int>(i); break; }
+    m_spool_choice->SetSelection(sel);
+}
+
+int ForgeCalibrationPage::selected_spool_id() const
+{
+    if (m_spool_choice == nullptr)
+        return -1;
+    const int i = m_spool_choice->GetSelection();
+    if (i < 0 || i >= static_cast<int>(m_choice_spool_ids.size()))
+        return -1;
+    return m_choice_spool_ids[i];
 }
 
 }} // namespace Slic3r::GUI

@@ -3,9 +3,14 @@
 
 #include <wx/scrolwin.h>
 
+#include <vector>
+
+#include "libslic3r/ForgeSpool.hpp"
+
 class wxStaticText;
 class wxTextCtrl;
 class wxButton;
+class wxChoice;
 
 namespace Slic3r { namespace GUI {
 
@@ -27,11 +32,17 @@ public:
 private:
     void on_apply(wxCommandEvent& evt);
     void on_save(wxCommandEvent& evt);
+    void populate_spool_choice(const std::string& material);
+    int  selected_spool_id() const;
 
-    wxStaticText* m_context = nullptr;
-    wxStaticText* m_best    = nullptr;
-    wxTextCtrl*   m_list    = nullptr;
-    wxButton*     m_apply   = nullptr;
+    wxStaticText* m_context     = nullptr;
+    wxStaticText* m_best        = nullptr;
+    wxTextCtrl*   m_list        = nullptr;
+    wxButton*     m_apply       = nullptr;
+    wxChoice*     m_spool_choice = nullptr;
+
+    std::vector<ForgeSpool> m_spools;       // last fetched inventory (cached)
+    std::vector<int>        m_choice_spool_ids; // selection index -> spool id (-1 = none)
 };
 
 }} // namespace Slic3r::GUI
