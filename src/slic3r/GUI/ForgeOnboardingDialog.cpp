@@ -27,7 +27,9 @@ ForgeOnboardingDialog::ForgeOnboardingDialog(wxWindow* parent)
                wxDefaultPosition, wxSize(640, 720),
                wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER)
 {
-    SetBackgroundColour(*wxWHITE);
+    // Inherit the app's themed background instead of forcing white — on the dark
+    // theme a white background turned the light labels/controls white-on-white
+    // (the "hard to see white boxes"). UpdateDlgDarkUI() below themes it properly.
 
     auto* root = new wxBoxSizer(wxVERTICAL);
 
@@ -90,6 +92,7 @@ ForgeOnboardingDialog::ForgeOnboardingDialog(wxWindow* parent)
     m_btn_clear->Bind(wxEVT_BUTTON, &ForgeOnboardingDialog::on_clear, this);
     m_btn_ok->Bind(wxEVT_BUTTON, &ForgeOnboardingDialog::on_ok, this);
 
+    wxGetApp().UpdateDlgDarkUI(this); // theme the dialog (dark/light) so text contrasts
     CentreOnParent();
 }
 
