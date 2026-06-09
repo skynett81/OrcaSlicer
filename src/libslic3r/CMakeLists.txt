@@ -320,6 +320,8 @@ set(lisbslic3r_sources
     ForgePrinterMatch.hpp
     ForgeFilamentMatch.cpp
     ForgeFilamentMatch.hpp
+    ForgeFilamentManager.cpp
+    ForgeFilamentManager.hpp
     filament_mixer.cpp
     filament_mixer.h
     filament_mixer_model.h
