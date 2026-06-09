@@ -55,4 +55,40 @@ int best_layer_count(const ColorLayerRGB&      target,
     return best_n;
 }
 
+std::vector<ColorLayerRGB> height_palette(const std::vector<ColorLayerFilament>& layer_schedule,
+                                          const ColorLayerRGB&                    base,
+                                          double                                  layer_height_mm)
+{
+    std::vector<ColorLayerRGB> palette;
+    palette.reserve(layer_schedule.size() + 1);
+    palette.push_back(base);
+    // Incremental "over" compositing: each printed layer laid over the stack so far.
+    ColorLayerRGB cur = base;
+    for (const ColorLayerFilament& f : layer_schedule) {
+        const double a = layer_alpha(layer_height_mm, f.td_mm);
+        cur.r = a * (double)f.r + (1.0 - a) * cur.r;
+        cur.g = a * (double)f.g + (1.0 - a) * cur.g;
+        cur.b = a * (double)f.b + (1.0 - a) * cur.b;
+        palette.push_back(cur);
+    }
+    return palette;
+}
+
+int pick_height(const ColorLayerRGB& target, const std::vector<ColorLayerRGB>& palette)
+{
+    int    best_h    = 0;
+    double best_dist = -1.0;
+    for (int h = 0; h < (int)palette.size(); ++h) {
+        const double dr = palette[h].r - target.r;
+        const double dg = palette[h].g - target.g;
+        const double db = palette[h].b - target.b;
+        const double dist = dr * dr + dg * dg + db * db;
+        if (best_dist < 0.0 || dist < best_dist) { // strict < keeps fewest layers on ties
+            best_dist = dist;
+            best_h    = h;
+        }
+    }
+    return best_h;
+}
+
 } // namespace Slic3r

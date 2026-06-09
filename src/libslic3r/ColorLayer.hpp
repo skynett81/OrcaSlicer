@@ -54,6 +54,20 @@ int best_layer_count(const ColorLayerRGB&     target,
                      double                   layer_height_mm,
                      int                      max_layers);
 
+// Precompute the perceived colour after each printed height, given a per-layer
+// filament schedule (layer_schedule[i] = the filament printed at layer i, bottom
+// to top) and a uniform layer height. The returned palette has
+// layer_schedule.size()+1 entries: palette[0] = base, palette[h] = the stack of
+// the first h layers. This is the colour "ramp" a HueForge print can reproduce.
+std::vector<ColorLayerRGB> height_palette(const std::vector<ColorLayerFilament>& layer_schedule,
+                                          const ColorLayerRGB&                    base,
+                                          double                                  layer_height_mm);
+
+// Index into `palette` (i.e. the layer height) whose colour best matches `target`
+// (min squared RGB distance). Ties resolve to the FEWER layers (less filament,
+// shorter print). Returns 0 for an empty palette.
+int pick_height(const ColorLayerRGB& target, const std::vector<ColorLayerRGB>& palette);
+
 } // namespace Slic3r
 
 #endif
