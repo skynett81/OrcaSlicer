@@ -11,7 +11,7 @@ endif()
 # version). Bump both projects together. NOTE: SLIC3R_VERSION below is the
 # config/.3mf format-compatibility version and is intentionally NOT tied to this
 # — changing it would break profile/project migration.
-set(FORGE_VERSION "1.1.22")
+set(FORGE_VERSION "1.1.23")
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)"
        FORGE_VERSION_MATCH ${FORGE_VERSION})
 set(ORCA_VERSION_MAJOR ${CMAKE_MATCH_1})
