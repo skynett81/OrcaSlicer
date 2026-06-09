@@ -23,6 +23,10 @@
 #include "libslic3r/PresetBundle.hpp"
 #include "libslic3r/Preset.hpp"
 #include "libslic3r/Format/bbs_3mf.hpp"
+#include "libslic3r/ForgePrinterMatch.hpp"
+#include "libslic3r/Utils.hpp" // data_dir
+
+#include <nlohmann/json.hpp>
 
 #include <wx/dialog.h>
 #include <wx/sizer.h>
@@ -221,6 +225,87 @@ void forge_pick_printer_and_send()
     else
         wxMessageBox(wxString::Format(_L("Send failed: %s"), wxString::FromUTF8(res.message)),
                      _L("Send to 3DPrintForge"), wxICON_ERROR);
+}
+
+int forge_sync_fleet_to_presets()
+{
+    AppConfig* cfg = wxGetApp().app_config;
+    if (cfg == nullptr)
+        return 0;
+
+    ForgeCloudAgent agent;
+    agent.set_server_url(forge_dashboard_url());
+    const std::vector<ForgePrinter> fleet = agent.list_printers();
+    if (fleet.empty())
+        return 0;
+
+    // Load the installable catalogue: (vendor folder, machine model, nozzle).
+    namespace fs = boost::filesystem;
+    const fs::path system_dir = fs::path(Slic3r::data_dir()) / "system";
+    if (!fs::exists(system_dir))
+        return 0;
+
+    struct CatEntry { std::string vendor, model, nozzle; };
+    std::vector<CatEntry>    catalog;
+    std::vector<std::string> model_names;
+    for (fs::directory_iterator it(system_dir), end; it != end; ++it) {
+        if (!fs::is_regular_file(it->path()) || it->path().extension() != ".json")
+            continue;
+        const std::string vendor = it->path().stem().string();
+        if (vendor == "Custom" || vendor == "OrcaFilamentLibrary")
+            continue;
+        try {
+            std::ifstream ifs(it->path().string());
+            nlohmann::json vj; ifs >> vj;
+            if (!vj.contains("machine_model_list")) continue;
+            for (const auto& m : vj["machine_model_list"]) {
+                if (!m.contains("name") || !m.contains("sub_path")) continue;
+                const std::string model = m["name"].get<std::string>();
+                const fs::path mp = system_dir / vendor / m["sub_path"].get<std::string>();
+                if (!fs::exists(mp)) continue;
+                std::ifstream mifs(mp.string());
+                nlohmann::json mj; mifs >> mj;
+                if (!mj.contains("nozzle_diameter")) continue;
+                const std::string nozzles = mj["nozzle_diameter"].get<std::string>();
+                std::string noz;
+                for (size_t i = 0; i <= nozzles.size(); ++i) {
+                    if (i == nozzles.size() || nozzles[i] == ';') {
+                        if (!noz.empty()) { catalog.push_back({vendor, model, noz}); model_names.push_back(model); }
+                        noz.clear();
+                    } else {
+                        noz.push_back(nozzles[i]);
+                    }
+                }
+            }
+        } catch (...) { /* skip malformed vendor */ }
+    }
+    if (catalog.empty())
+        return 0;
+
+    int installed = 0;
+    for (const ForgePrinter& fp : fleet) {
+        if (fp.model.empty()) continue;
+        const std::string best_model = match_fleet_printer_preset(fp.vendor, fp.model, model_names);
+        if (best_model.empty()) continue;
+        // Prefer a 0.4 nozzle variant of the matched model, else the first.
+        const CatEntry* chosen = nullptr;
+        for (const CatEntry& e : catalog) {
+            if (e.model != best_model) continue;
+            if (e.nozzle == "0.4") { chosen = &e; break; }
+            if (chosen == nullptr) chosen = &e;
+        }
+        if (chosen == nullptr) continue;
+        const std::string variant = chosen->nozzle + " nozzle";
+        if (!cfg->get_variant(chosen->vendor, chosen->model, variant)) {
+            cfg->set_variant(chosen->vendor, chosen->model, variant, true);
+            ++installed;
+        }
+    }
+    if (installed > 0) {
+        cfg->save();
+        try { wxGetApp().load_current_presets(); } catch (...) { /* user can restart */ }
+    }
+    return installed;
 }
 
 // ---------------------------------------------------------------------------

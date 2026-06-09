@@ -71,6 +71,13 @@ void        set_forge_dashboard_url(const std::string& url);
 // Bambu-only "Send print job" dialog. Reports success/failure to the user.
 void        forge_pick_printer_and_send();
 
+// Ensure each connected dashboard fleet printer has its slicing preset installed,
+// so connected printers appear under "Printer". Matches each fleet printer's
+// model to the installable catalogue (via match_fleet_printer_preset), enables a
+// 0.4-nozzle variant it isn't already, and reloads presets. Returns how many were
+// newly installed (0 if none/all present/no fleet). Safe to call on fleet refresh.
+int         forge_sync_fleet_to_presets();
+
 }} // namespace Slic3r::GUI
 
 #endif // slic3r_GUI_ForgeCloud_hpp_

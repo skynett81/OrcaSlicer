@@ -822,6 +822,13 @@ void ForgeFleetPanel::refresh_printer_list()
             update_status_bar("No printers registered on the server yet.");
     } else {
         update_status_bar("Showing " + std::to_string(m_printers.size()) + " printers.");
+        // Universe: make sure each connected printer's slicing preset is installed
+        // so it also appears under "Printer". Only installs ones not already present
+        // (and only reloads presets when something new was added).
+        const int added = forge_sync_fleet_to_presets();
+        if (added > 0)
+            update_status_bar("Showing " + std::to_string(m_printers.size()) +
+                              " printers — added " + std::to_string(added) + " to the Printer list.");
     }
 }
 
