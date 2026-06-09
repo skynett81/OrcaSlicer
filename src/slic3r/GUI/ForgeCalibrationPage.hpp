@@ -19,7 +19,10 @@ class ForgeCalibrationPage : public wxScrolledWindow
 public:
     explicit ForgeCalibrationPage(wxWindow* parent);
 
-    void refresh();
+    // include_dashboard=false reads only the local cache (instant, UI-safe) and
+    // is used for refresh-on-show; true also does a blocking dashboard sync and
+    // is used for the explicit Refresh button.
+    void refresh(bool include_dashboard = false);
 
 private:
     void on_apply(wxCommandEvent& evt);

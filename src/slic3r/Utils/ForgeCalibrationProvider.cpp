@@ -121,6 +121,11 @@ std::string forge_calibration_cache_path()
     return (boost::filesystem::path(data_dir()) / "forge_calibration.json").string();
 }
 
+std::vector<ForgeCalibrationRecord> load_cached_calibration_records()
+{
+    return read_cache();
+}
+
 std::vector<ForgeCalibrationRecord> load_calibration_records()
 {
     std::vector<ForgeCalibrationRecord> records = read_cache();

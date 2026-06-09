@@ -96,12 +96,20 @@ ForgeCalibrationPage::ForgeCalibrationPage(wxWindow* parent)
 
     m_apply->Bind(wxEVT_BUTTON, &ForgeCalibrationPage::on_apply, this);
     save->Bind(wxEVT_BUTTON, &ForgeCalibrationPage::on_save, this);
-    refresh_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { this->refresh(); });
+    refresh_btn->Bind(wxEVT_BUTTON, [this](wxCommandEvent&) { this->refresh(/*include_dashboard=*/true); });
 
-    refresh();
+    // Auto-refresh (local cache only — no blocking network) whenever the page is
+    // shown, e.g. when the user switches to it in the Calibration tab.
+    Bind(wxEVT_SHOW, [this](wxShowEvent& e) {
+        if (e.IsShown())
+            this->refresh(/*include_dashboard=*/false);
+        e.Skip();
+    });
+
+    refresh(/*include_dashboard=*/false);
 }
 
-void ForgeCalibrationPage::refresh()
+void ForgeCalibrationPage::refresh(bool include_dashboard)
 {
     const ForgeCaliContext ctx = forge_current_calibration_context();
 
@@ -114,7 +122,8 @@ void ForgeCalibrationPage::refresh()
     }
     m_context->SetLabel(_L("Active: ") + c);
 
-    const std::vector<ForgeCalibrationRecord> records = load_calibration_records();
+    const std::vector<ForgeCalibrationRecord> records =
+        include_dashboard ? load_calibration_records() : load_cached_calibration_records();
     const int best = find_best_calibration(records, ctx.printer, -1, ctx.material, ctx.vendor, ctx.nozzle);
     if (best >= 0) {
         m_best->SetLabel(_L("Best match: ") + forge_calibration_summary(records[best]));
@@ -148,7 +157,7 @@ void ForgeCalibrationPage::refresh()
 void ForgeCalibrationPage::on_apply(wxCommandEvent&)
 {
     const ForgeCaliContext ctx = forge_current_calibration_context();
-    const std::vector<ForgeCalibrationRecord> records = load_calibration_records();
+    const std::vector<ForgeCalibrationRecord> records = load_cached_calibration_records();
     const int best = find_best_calibration(records, ctx.printer, -1, ctx.material, ctx.vendor, ctx.nozzle);
     if (best < 0 || !records[best].has_any()) {
         wxMessageBox(_L("No saved calibration to apply."), _L("Fleet Calibration"), wxOK | wxICON_INFORMATION, this);

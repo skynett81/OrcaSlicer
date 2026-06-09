@@ -18,8 +18,13 @@ namespace Slic3r {
 std::string forge_calibration_cache_path();
 
 // Load records from the local cache, merged with a best-effort dashboard pull
-// (dashboard records win on identity collisions). Never throws.
+// (dashboard records win on identity collisions). Performs a blocking network
+// request — do NOT call on the UI thread in a hot path. Never throws.
 std::vector<ForgeCalibrationRecord> load_calibration_records();
+
+// Load ONLY the local cache (no network). Instant and UI-thread safe — use this
+// for refresh-on-show; reserve load_calibration_records() for explicit sync.
+std::vector<ForgeCalibrationRecord> load_cached_calibration_records();
 
 // Upsert one record into the local cache and persist it, then best-effort push
 // it to the dashboard. Returns true when the local write succeeded.
