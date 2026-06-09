@@ -7,7 +7,11 @@ set(SLIC3R_APP_KEY "3DPrintForgeSlicer")
 if(NOT DEFINED BBL_INTERNAL_TESTING)
 set(BBL_INTERNAL_TESTING "0")
 endif()
-set(SoftFever_VERSION "2.4.0-dev")
+# Product version — kept in lockstep with 3DPrintForge Server (one system, one
+# version). Bump both projects together. NOTE: SLIC3R_VERSION below is the
+# config/.3mf format-compatibility version and is intentionally NOT tied to this
+# — changing it would break profile/project migration.
+set(SoftFever_VERSION "1.1.22")
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)"
        SoftFever_VERSION_MATCH ${SoftFever_VERSION})
 set(ORCA_VERSION_MAJOR ${CMAKE_MATCH_1})
