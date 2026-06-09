@@ -46,6 +46,7 @@
 #include "ForgeCloud.hpp"
 #include "ForgeCloudSettingsDialog.hpp"
 #include "ForgeOnboardingDialog.hpp"
+#include "ForgeColorLayerDialog.hpp"
 #include "ForgeFleetPanel.hpp"
 // BBS
 #include "PartPlate.hpp"
@@ -3385,6 +3386,13 @@ void MainFrame::init_menubar_as_editor()
             dlg.ShowModal();
         }, "", nullptr,
         [this]() { return true; }, this);
+    append_menu_item(forge_menu_linux, wxID_ANY, _L("Colour Layer Generator..."),
+        _L("Turn an image into a multi-colour relief (HueForge-style)"),
+        [this](wxCommandEvent&) {
+            Slic3r::GUI::ForgeColorLayerDialog dlg(this);
+            dlg.ShowModal();
+        }, "", nullptr,
+        [this]() { return true; }, this);
     append_menu_item(forge_menu_linux, wxID_ANY, _L("Send to 3DPrintForge..."),
         _L("Upload the current plate to the 3DPrintForge dashboard queue"),
         [this](wxCommandEvent&) { send_plate_to_3dprintforge(); }, "", nullptr,
@@ -3625,6 +3633,13 @@ void MainFrame::init_menubar_as_editor()
         _L("Browse 3DPrintForge's parametric model generators"),
         [this](wxCommandEvent&) {
             Slic3r::GUI::ForgeLibraryDialog dlg(this);
+            dlg.ShowModal();
+        }, "", nullptr,
+        [this]() { return true; }, this);
+    append_menu_item(forge_menu, wxID_ANY, _L("Colour Layer Generator..."),
+        _L("Turn an image into a multi-colour relief (HueForge-style)"),
+        [this](wxCommandEvent&) {
+            Slic3r::GUI::ForgeColorLayerDialog dlg(this);
             dlg.ShowModal();
         }, "", nullptr,
         [this]() { return true; }, this);
