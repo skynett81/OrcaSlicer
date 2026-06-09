@@ -492,6 +492,11 @@ void CalibrationPanel::init_tabpanel() {
             selected);
     }
 
+    // 3DPrintForge: a brand-agnostic fleet calibration page alongside the
+    // Bambu-only wizards. Works for every printer brand and documents itself.
+    m_forge_cali_page = new ForgeCalibrationPage(m_tabpanel);
+    m_tabpanel->AddPage(m_forge_cali_page, _L("Fleet Calibration"), "", false);
+
     // ORCA use standard paddings and keep arrow icon for consistent look between sidebars
     //for (int i = 0; i < (int)CALI_MODE_COUNT; i++)
     //    m_tabpanel->SetPageImage(i, "");
