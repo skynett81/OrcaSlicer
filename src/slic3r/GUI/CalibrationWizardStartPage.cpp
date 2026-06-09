@@ -119,7 +119,8 @@ void CalibrationPAStartPage::create_page(wxWindow* parent)
         _L("Please find the details of Flow Dynamics Calibration from our wiki.\
 \n\nUsually the calibration is unnecessary. When you start a single color/material print, with the \"flow dynamics calibration\" option checked in the print start menu, the printer will follow the old way, calibrate the filament before the print; When you start a multi color/material print, the printer will use the default compensation parameter for the filament during every filament switch which will have a good result in most cases.\
 \n\nPlease note that there are a few cases that can make the calibration results unreliable, such as insufficient adhesion on the build plate. Improving adhesion can be achieved by washing the build plate or applying glue. For more information on this topic, please refer to our Wiki.\
-\n\nThe calibration results have about 10 percent jitter in our test, which may cause the result not exactly the same in each calibration. We are still investigating the root cause to do improvements with new updates."));
+\n\nThe calibration results have about 10 percent jitter in our test, which may cause the result not exactly the same in each calibration. We are still investigating the root cause to do improvements with new updates.\
+\n\n3DPrintForge: this automatic Flow Dynamics calibration runs on connected Bambu Lab printers. For other printers in your fleet (Snapmaker, Klipper/Moonraker, Prusa, ...), use the Fleet Calibration page to store and reuse your pressure-advance value across the fleet."));
     m_top_sizer->Add(m_about_title);
     m_top_sizer->Add(m_about_content);
     m_top_sizer->AddSpacer(PRESET_GAP);
@@ -243,7 +244,8 @@ void CalibrationFlowRateStartPage::create_page(wxWindow* parent)
 
     create_about(parent,
         _L("About this calibration"),
-        _L("Flow Rate Calibration measures the ratio of expected to actual extrusion volumes. The default setting works well in Bambu Lab printers and official filaments as they were pre-calibrated and fine-tuned. For a regular filament, you usually won't need to perform a Flow Rate Calibration unless you still see the listed defects after you have done other calibrations. For more details, please check out the wiki article."));
+        _L("Flow Rate Calibration measures the ratio of expected to actual extrusion volumes. The default setting works well in Bambu Lab printers and official filaments as they were pre-calibrated and fine-tuned. For a regular filament, you usually won't need to perform a Flow Rate Calibration unless you still see the listed defects after you have done other calibrations. For more details, please check out the wiki article.\
+\n\n3DPrintForge: the automatic (Micro-Lidar) method below requires a connected Bambu Lab printer. On other printers in your fleet (Snapmaker, Klipper/Moonraker, Prusa, ...), run the manual Flow Rate test from the Calibration menu, then save the result under Fleet Calibration so the whole fleet reuses it."));
         
     m_top_sizer->Add(m_about_title);
     m_top_sizer->Add(m_about_content);
