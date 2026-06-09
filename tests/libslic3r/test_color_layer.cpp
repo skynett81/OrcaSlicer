@@ -1,6 +1,10 @@
 #include <catch2/catch_all.hpp>
 
 #include "libslic3r/ColorLayer.hpp"
+#include "libslic3r/ColorLayerMesh.hpp"
+#include "libslic3r/TriangleMesh.hpp"
+
+#include <limits>
 
 using namespace Slic3r;
 using Catch::Matchers::WithinAbs;
@@ -102,6 +106,52 @@ TEST_CASE("planner reproduces a greyscale ramp end-to-end", "[ColorLayer]")
     REQUIRE(h_white == (int)pal.size() - 1);
     REQUIRE(h_grey > h_black);
     REQUIRE(h_grey < h_white);
+}
+
+TEST_CASE("its_from_heightmap rejects invalid input", "[ColorLayer]")
+{
+    REQUIRE(its_from_heightmap({}, 0, 0, 1.0).vertices.empty());
+    REQUIRE(its_from_heightmap({1.f, 2.f}, 2, 2, 1.0).vertices.empty()); // size mismatch
+    REQUIRE(its_from_heightmap(std::vector<float>(4, 1.f), 2, 2, 0.0).vertices.empty()); // pitch 0
+}
+
+TEST_CASE("its_from_heightmap: a 2x2 map is a watertight box", "[ColorLayer]")
+{
+    auto its = its_from_heightmap(std::vector<float>(4, 5.0f), 2, 2, 10.0);
+    REQUIRE(its.vertices.size() == 8);   // 2*W*H
+    REQUIRE(its.indices.size() == 12);   // a closed box
+
+    // Bounding box: x,y in [0,10], z in [0,5].
+    float xmin = 1e9f, xmax = -1e9f, ymin = 1e9f, ymax = -1e9f, zmin = 1e9f, zmax = -1e9f;
+    for (const auto& v : its.vertices) {
+        xmin = std::min(xmin, v.x()); xmax = std::max(xmax, v.x());
+        ymin = std::min(ymin, v.y()); ymax = std::max(ymax, v.y());
+        zmin = std::min(zmin, v.z()); zmax = std::max(zmax, v.z());
+    }
+    REQUIRE_THAT(xmax, WithinAbs(10.0, 1e-4)); REQUIRE_THAT(xmin, WithinAbs(0.0, 1e-4));
+    REQUIRE_THAT(ymax, WithinAbs(10.0, 1e-4)); REQUIRE_THAT(ymin, WithinAbs(0.0, 1e-4));
+    REQUIRE_THAT(zmax, WithinAbs(5.0, 1e-4));  REQUIRE_THAT(zmin, WithinAbs(0.0, 1e-4));
+
+    // It forms a valid solid (positive volume after repair).
+    TriangleMesh mesh(its);
+    REQUIRE_FALSE(mesh.empty());
+    REQUIRE(mesh.volume() > 0.0);
+}
+
+TEST_CASE("its_from_heightmap: counts + max height scale with the grid", "[ColorLayer]")
+{
+    const int W = 4, H = 3;
+    std::vector<float> hm(W * H, 1.0f);
+    hm[0] = 7.0f; // one tall pixel
+    auto its = its_from_heightmap(hm, W, H, 2.0);
+    REQUIRE(its.vertices.size() == (size_t)(2 * W * H));
+    // top + bottom + walls
+    const size_t expect = 4u * (W - 1) * (H - 1) + 4u * (W - 1) + 4u * (H - 1);
+    REQUIRE(its.indices.size() == expect);
+
+    float zmax = -1e9f;
+    for (const auto& v : its.vertices) zmax = std::max(zmax, v.z());
+    REQUIRE_THAT(zmax, WithinAbs(7.0, 1e-4));
 }
 
 TEST_CASE("best_layer_count picks the closest stack and prefers fewer layers", "[ColorLayer]")
