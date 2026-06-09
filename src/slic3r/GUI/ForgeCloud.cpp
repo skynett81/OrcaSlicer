@@ -227,6 +227,21 @@ void forge_pick_printer_and_send()
                      _L("Send to 3DPrintForge"), wxICON_ERROR);
 }
 
+// Cache of the connected fleet's (vendor, model) pairs, filled on each fleet
+// sync, so the Printer combo can mark connected presets without hitting the net.
+static std::vector<std::pair<std::string, std::string>> g_forge_fleet_vm;
+
+bool forge_preset_is_connected(const std::string& preset_name)
+{
+    if (preset_name.empty())
+        return false;
+    const std::vector<std::string> one{ preset_name };
+    for (const auto& vm : g_forge_fleet_vm)
+        if (match_fleet_printer_preset(vm.first, vm.second, one) == preset_name)
+            return true;
+    return false;
+}
+
 int forge_sync_fleet_to_presets()
 {
     AppConfig* cfg = wxGetApp().app_config;
@@ -238,6 +253,12 @@ int forge_sync_fleet_to_presets()
     const std::vector<ForgePrinter> fleet = agent.list_printers();
     if (fleet.empty())
         return 0;
+
+    // Refresh the connected-models cache for the Printer-combo markers.
+    g_forge_fleet_vm.clear();
+    for (const ForgePrinter& fp : fleet)
+        if (!fp.model.empty())
+            g_forge_fleet_vm.emplace_back(fp.vendor, fp.model);
 
     // Load the installable catalogue: (vendor folder, machine model, nozzle).
     namespace fs = boost::filesystem;

@@ -35,12 +35,16 @@ void ForgeCloudSettingsDialog::build_ui()
     root->Add(heading, 0, wxLEFT | wxRIGHT | wxTOP, 16);
 
     auto* hint = new wxStaticText(this, wxID_ANY,
-        _L("Shared by the Fleet panel, Forge Library and \"Send to 3DPrintForge\"."));
+        _L("Address of your 3DPrintForge server. It does NOT need to run on this PC — "
+           "point it at the server's IP (e.g. http://192.168.1.50:3000). Drives the Fleet "
+           "panel, fleet printers under \"Printer\", spool stock, and \"Send to 3DPrintForge\"."));
+    hint->Wrap(500);
     root->Add(hint, 0, wxLEFT | wxRIGHT | wxTOP, 16);
 
     auto* url_row = new wxBoxSizer(wxHORIZONTAL);
-    url_row->Add(new wxStaticText(this, wxID_ANY, _L("Dashboard URL:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
+    url_row->Add(new wxStaticText(this, wxID_ANY, _L("Server address:")), 0, wxALIGN_CENTER_VERTICAL | wxRIGHT, 8);
     m_url = new wxTextCtrl(this, wxID_ANY, wxString::FromUTF8(forge_dashboard_url()));
+    m_url->SetHint("http://192.168.1.50:3000");
     url_row->Add(m_url, 1, wxALIGN_CENTER_VERTICAL);
     auto* btn_test = new wxButton(this, wxID_ANY, _L("Test"));
     url_row->Add(btn_test, 0, wxLEFT, 8);

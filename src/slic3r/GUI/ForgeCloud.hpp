@@ -78,6 +78,11 @@ void        forge_pick_printer_and_send();
 // newly installed (0 if none/all present/no fleet). Safe to call on fleet refresh.
 int         forge_sync_fleet_to_presets();
 
+// True if `preset_name` matches a currently-connected fleet printer (by model),
+// so the Printer combo can mark it. Uses a cache filled by
+// forge_sync_fleet_to_presets(); returns false until the fleet has been synced.
+bool        forge_preset_is_connected(const std::string& preset_name);
+
 }} // namespace Slic3r::GUI
 
 #endif // slic3r_GUI_ForgeCloud_hpp_
