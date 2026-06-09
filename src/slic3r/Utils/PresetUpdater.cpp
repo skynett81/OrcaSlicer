@@ -665,7 +665,7 @@ void PresetUpdater::priv::sync_vendor_config(const std::string& vendor_id)
     AppConfig *app_config = GUI::wxGetApp().app_config;
     std::string url = app_config->profile_update_url()
         + "?vendor=" + Http::url_encode(vendor_id)
-        + "&orca_version=" + Http::url_encode(SoftFever_VERSION);
+        + "&orca_version=" + Http::url_encode(FORGE_VERSION);
 
     std::string online_version_str; // this represents the PROFILE VERSION, not ORCA VERSION
     std::string download_url_str;

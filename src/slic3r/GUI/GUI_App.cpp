@@ -2388,7 +2388,7 @@ void GUI_App::init_app_config()
     set_log_path_and_level(log_filename, 3);
 #endif
 
-    BOOST_LOG_TRIVIAL(info) << boost::format("gui mode, Current 3DPrintForge Slicer Version %1% build %2%") % SoftFever_VERSION % GIT_COMMIT_HASH;
+    BOOST_LOG_TRIVIAL(info) << boost::format("gui mode, Current 3DPrintForge Slicer Version %1% build %2%") % FORGE_VERSION % GIT_COMMIT_HASH;
 
     //BBS: remove GCodeViewer as seperate APP logic
 	if (!app_config)
@@ -5312,7 +5312,7 @@ std::string detect_updater_os_info()
 
 std::string detect_updater_version()
 {
-    return SoftFever_VERSION;
+    return FORGE_VERSION;
 }
 
 std::string detect_updater_iid(AppConfig* config)
@@ -5548,7 +5548,7 @@ void GUI_App::check_new_version_sf(bool show_tips, int by_user)
             boost::property_tree::read_json(json_stream, root);
 
             std::regex matcher("[0-9]+\\.[0-9]+(\\.[0-9]+)*(-[A-Za-z0-9]+)?(\\+[A-Za-z0-9]+)?");
-            Semver    current_version = get_version(SoftFever_VERSION, matcher);
+            Semver    current_version = get_version(FORGE_VERSION, matcher);
             Semver    best_pre(0, 0, 0);
             Semver    best_release(0, 0, 0);
             bool      best_pre_valid = false;
@@ -5904,7 +5904,7 @@ std::string GUI_App::format_display_version()
 {
     if (!version_display.empty()) return version_display;
 
-    version_display = SoftFever_VERSION;
+    version_display = FORGE_VERSION;
     return version_display;
 }
 

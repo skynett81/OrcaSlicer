@@ -1261,7 +1261,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
         update_apply_status(this->invalidate_step(psGCodeExport));
         m_placeholder_parser.clear_config();
         // clear_config() wiped the constructor-set "version"; restore it for custom G-code.
-        m_placeholder_parser.set("version", std::string(SoftFever_VERSION));
+        m_placeholder_parser.set("version", std::string(FORGE_VERSION));
         // Set the profile aliases for the PrintBase::output_filename()
 		m_placeholder_parser.set("print_preset",              new_full_config.option("print_settings_id")->clone());
 		m_placeholder_parser.set("filament_preset",           new_full_config.option("filament_settings_id")->clone());
@@ -1639,7 +1639,7 @@ Print::ApplyStatus Print::apply(const Model &model, DynamicPrintConfig new_full_
 
             m_placeholder_parser.clear_config();
             // clear_config() wiped the constructor-set "version"; restore it for custom G-code.
-            m_placeholder_parser.set("version", std::string(SoftFever_VERSION));
+            m_placeholder_parser.set("version", std::string(FORGE_VERSION));
             // Set the profile aliases for the PrintBase::output_filename()
             m_placeholder_parser.set("print_preset",              new_full_config.option("print_settings_id")->clone());
             m_placeholder_parser.set("filament_preset",           new_full_config.option("filament_settings_id")->clone());

@@ -1858,7 +1858,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         // Orca: skip version check
         bool dont_load_config = !m_load_config;
         // if (m_bambuslicer_generator_version) {
-        //     Semver app_version = *(Semver::parse(SoftFever_VERSION));
+        //     Semver app_version = *(Semver::parse(FORGE_VERSION));
         //     Semver file_version = *m_bambuslicer_generator_version;
         //     if (file_version.maj() != app_version.maj())
         //         dont_load_config = true;
@@ -3944,7 +3944,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
             }*/
         } else if (m_curr_metadata_name == BBL_APPLICATION_TAG) {
             // Generator application of the 3MF.
-            // SLIC3R_APP_KEY - SoftFever_VERSION
+            // SLIC3R_APP_KEY - FORGE_VERSION
             if (boost::starts_with(m_curr_characters, "BambuStudio-")) {
                 m_is_bbl_3mf = true;
                 m_bambuslicer_generator_version = Semver::parse(m_curr_characters.substr(12));
@@ -6861,7 +6861,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
                        << xml_escape(item.second) << "</" << METADATA_TAG << ">\n";
                 if (item.first == BBL_APPLICATION_TAG) {
                     stream << " <" << METADATA_TAG << " name=\"" << ORCASLICER_TAG << "\">"
-                           << xml_escape(SoftFever_VERSION) << "</" << METADATA_TAG << ">\n";
+                           << xml_escape(FORGE_VERSION) << "</" << METADATA_TAG << ">\n";
                 }
             }
 
@@ -8151,7 +8151,7 @@ void PlateData::parse_filament_info(GCodeProcessorResult *result)
         stream << "  <" << SLICE_HEADER_TAG << ">\n";
         stream << "    <" << SLICE_HEADER_ITEM_TAG << " " << KEY_ATTR << "=\"" << "X-BBL-Client-Type"    << "\" " << VALUE_ATTR << "=\"" << "slicer" << "\"/>\n";
         stream << "    <" << SLICE_HEADER_ITEM_TAG << " " << KEY_ATTR << "=\"" << "X-BBL-Client-Version" << "\" " << VALUE_ATTR << "=\"" << convert_to_full_version(SLIC3R_VERSION) << "\"/>\n";
-        stream << "    <" << SLICE_HEADER_ITEM_TAG << " " << KEY_ATTR << "=\"" << "OrcaSlicer-Version" << "\" " << VALUE_ATTR << "=\"" << SoftFever_VERSION << "\"/>\n";
+        stream << "    <" << SLICE_HEADER_ITEM_TAG << " " << KEY_ATTR << "=\"" << "OrcaSlicer-Version" << "\" " << VALUE_ATTR << "=\"" << FORGE_VERSION << "\"/>\n";
         stream << "  </" << SLICE_HEADER_TAG << ">\n";
 
         for (unsigned int i = 0; i < (unsigned int)plate_data_list.size(); ++i)

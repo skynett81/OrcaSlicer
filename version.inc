@@ -11,9 +11,9 @@ endif()
 # version). Bump both projects together. NOTE: SLIC3R_VERSION below is the
 # config/.3mf format-compatibility version and is intentionally NOT tied to this
 # — changing it would break profile/project migration.
-set(SoftFever_VERSION "1.1.22")
+set(FORGE_VERSION "1.1.22")
 string(REGEX MATCH "^([0-9]+)\\.([0-9]+)\\.([0-9]+)"
-       SoftFever_VERSION_MATCH ${SoftFever_VERSION})
+       FORGE_VERSION_MATCH ${FORGE_VERSION})
 set(ORCA_VERSION_MAJOR ${CMAKE_MATCH_1})
 set(ORCA_VERSION_MINOR ${CMAKE_MATCH_2})
 set(ORCA_VERSION_PATCH ${CMAKE_MATCH_3})

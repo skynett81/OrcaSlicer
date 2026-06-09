@@ -1459,7 +1459,7 @@ int CLI::run(int argc, char **argv)
     }
 
     global_begin_time = (long long)Slic3r::Utils::get_current_time_utc();
-    BOOST_LOG_TRIVIAL(warning) << boost::format("cli mode, Current 3DPrintForge Slicer Version %1%")%SoftFever_VERSION;
+    BOOST_LOG_TRIVIAL(warning) << boost::format("cli mode, Current 3DPrintForge Slicer Version %1%")%FORGE_VERSION;
 
     //BBS: add plate data related logic
     PlateDataPtrs plate_data_src;
@@ -1685,9 +1685,9 @@ int CLI::run(int argc, char **argv)
                         BOOST_LOG_TRIVIAL(info) << "object "<<o->name <<", id :" << o->id().id << ", from bbl 3mf\n";
                     }*/
 
-                    Semver cli_ver = *Semver::parse(SoftFever_VERSION);
+                    Semver cli_ver = *Semver::parse(FORGE_VERSION);
                     if (!allow_newer_file && ((cli_ver.maj() < file_version.maj()) || ((cli_ver.maj() == file_version.maj()) && (cli_ver.min() < file_version.min())))){
-                        BOOST_LOG_TRIVIAL(error) << boost::format("Version Check: File Version %1% not supported by current cli version %2%")%file_version.to_string() %SoftFever_VERSION;
+                        BOOST_LOG_TRIVIAL(error) << boost::format("Version Check: File Version %1% not supported by current cli version %2%")%file_version.to_string() %FORGE_VERSION;
                         record_exit_reson(outfile_dir, CLI_FILE_VERSION_NOT_SUPPORTED, 0, cli_errors[CLI_FILE_VERSION_NOT_SUPPORTED], sliced_info);
                         flush_and_exit(CLI_FILE_VERSION_NOT_SUPPORTED);
                     }
@@ -5604,7 +5604,7 @@ int CLI::run(int argc, char **argv)
             //FIXME check for mixing the FFF / SLA parameters.
             // or better save fff_print_config vs. sla_print_config
             //m_print_config.save(m_config.opt_string("save"));
-            m_print_config.save_to_json(m_config.opt_string(opt_key), std::string("project_settings"), std::string("project"), std::string(SoftFever_VERSION));
+            m_print_config.save_to_json(m_config.opt_string(opt_key), std::string("project_settings"), std::string("project"), std::string(FORGE_VERSION));
         } else if (opt_key == "info") {
             // --info works on unrepaired model
             for (Model &model : m_models) {
@@ -7294,7 +7294,7 @@ void CLI::print_help(bool include_print_options, PrinterTechnology printer_techn
     attach_console_on_demand();
 
     boost::nowide::cout
-        << SLIC3R_APP_KEY <<"-"<< SoftFever_VERSION << ":"
+        << SLIC3R_APP_KEY <<"-"<< FORGE_VERSION << ":"
         << std::endl
         << "Usage: 3dprintforge-slicer [ OPTIONS ] [ file.3mf/file.stl ... ]" << std::endl
         << std::endl

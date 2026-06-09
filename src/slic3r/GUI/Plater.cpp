@@ -6026,7 +6026,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                         load_type  = static_cast<LoadType>(std::stoi(import_project_action));
 
                     // BBS: version check
-                    Semver app_version = *(Semver::parse(SoftFever_VERSION));
+                    Semver app_version = *(Semver::parse(FORGE_VERSION));
                     const wxString load_3mf_title              = _L("Load 3MF");
                     const wxString newer_3mf_title             = _L("Newer 3MF version");
                     const wxString bambu_project_title         = _L("BambuStudio Project");
@@ -6047,7 +6047,7 @@ std::vector<size_t> Plater::priv::load_files(const std::vector<fs::path>& input_
                             log_and_show_3mf_info(msg_unsupported_geometry, load_3mf_title);
                     }
                     else if (en_3mf_file_type == En3mfType::From_Orca) {
-                        // 3DPrintForge Slicer file (has 3DPrintForge Slicer tag) - compare file_version with SoftFever_VERSION
+                        // 3DPrintForge Slicer file (has 3DPrintForge Slicer tag) - compare file_version with FORGE_VERSION
                         // Migration fix for 3DPrintForge Slicer 2.3.1-alpha sparse infill rotation template
                         if (load_config && (file_version < app_version) && file_version == Semver("2.3.1-alpha")) {
                             if (!config_loaded.opt_string("sparse_infill_rotate_template").empty()) {
