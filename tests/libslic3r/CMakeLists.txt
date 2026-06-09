@@ -15,6 +15,7 @@ add_executable(${_TEST_NAME}_tests
     test_forge_spool.cpp
     test_forge_spool_match.cpp
     test_forge_printer_match.cpp
+    test_forge_filament_match.cpp
     test_preset_bundle_loading.cpp
     test_elephant_foot_compensation.cpp
     test_geometry.cpp
