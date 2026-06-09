@@ -83,7 +83,7 @@
 	"brim_object_gap": "0.1",
 	"enable_prime_tower": "1",
 	"prime_tower_width": "60",
-	"wipe_tower_no_sparse_layers": "0",
+	"wipe_tower_no_sparse_layers": "1",
 	"print_sequence": "by layer",
 	"spiral_mode": "0",
 	"reduce_infill_retraction": "1",

@@ -1520,9 +1520,12 @@ void Tab::on_value_change(const std::string& opt_key, const boost::any& value)
         // purge receptacles (a slice test showed a 2-colour print where the 2nd
         // object printed in the wrong colour). Users must opt into it per object.
         std::map<std::string, bool> cascade = {
-            { "flush_into_infill",        reuse },
-            { "flush_into_support",       reuse },
-            { "reduce_infill_retraction", low },
+            { "flush_into_infill",          reuse },
+            { "flush_into_support",         reuse },
+            { "reduce_infill_retraction",   low },
+            // Skip the wipe tower on layers with no tool change -> less tower waste.
+            // Kept off only in Quality (max tower stability / cleanest separation).
+            { "wipe_tower_no_sparse_layers", reuse },
         };
         for (const auto& kv : cascade) {
             m_config->set_key_value(kv.first, new ConfigOptionBool(kv.second));

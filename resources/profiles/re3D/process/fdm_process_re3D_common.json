@@ -90,7 +90,7 @@
 	"top_shell_layers": "4",
 	"top_shell_thickness": "0.6",
 	"initial_layer_infill_speed": "50",
-	"wipe_tower_no_sparse_layers": "0",
+	"wipe_tower_no_sparse_layers": "1",
 	"precise_outer_wall": "0",
 	"outer_wall_acceleration": "2500",
 	"bridge_acceleration": "5000",

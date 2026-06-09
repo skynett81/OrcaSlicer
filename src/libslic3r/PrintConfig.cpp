@@ -6171,7 +6171,11 @@ void PrintConfigDef::init_fff_params()
                     "On layers with a tool change, extruder will travel downward to print the wipe tower. "
                     "User is responsible for ensuring there is no collision with the print.");
     def->mode = comAdvanced;
-    def->set_default_value(new ConfigOptionBool(false));
+    // 3DPrintForge: default ON to cut multi-colour tower waste — the tower is only
+    // printed on layers that actually change filament, not on every sparse layer.
+    // Only affects prints with a wipe tower (multi-colour); base process profiles
+    // are set to match. Cascaded by waste_mode (off only in Quality).
+    def->set_default_value(new ConfigOptionBool(true));
 
     def = this->add("single_extruder_multi_material_priming", coBool);
     def->label = L("Prime all printing extruders");

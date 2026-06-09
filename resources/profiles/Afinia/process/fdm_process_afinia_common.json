@@ -70,7 +70,7 @@
 	"top_shell_thickness": "0.8",
 	"travel_speed": "500",
 	"enable_prime_tower": "1",
-	"wipe_tower_no_sparse_layers": "0",
+	"wipe_tower_no_sparse_layers": "1",
 	"prime_tower_width": "35",
 	"wall_generator": "classic",
 	"exclude_object": "1",

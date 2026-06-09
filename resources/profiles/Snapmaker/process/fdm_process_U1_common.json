@@ -67,7 +67,7 @@
 	"top_shell_thickness": "0.8",
 	"travel_speed": "500",
 	"enable_prime_tower": "1",
-	"wipe_tower_no_sparse_layers": "0",
+	"wipe_tower_no_sparse_layers": "1",
 	"wipe_tower_cone_angle": "30",
 	"wipe_tower_wall_type": "rib",
 	"wipe_tower_extra_rib_length": "0",

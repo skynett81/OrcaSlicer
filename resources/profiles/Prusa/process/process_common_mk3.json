@@ -106,6 +106,6 @@
 	"wall_transition_angle": "10",
 	"wall_transition_filter_deviation": "25%",
 	"wall_transition_length": "100%",
-	"wipe_tower_no_sparse_layers": "0",
+	"wipe_tower_no_sparse_layers": "1",
 	"xy_contour_compensation": "0"
 }
