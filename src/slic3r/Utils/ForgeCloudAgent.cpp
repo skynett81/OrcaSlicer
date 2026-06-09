@@ -1,4 +1,7 @@
 #include "ForgeCloudAgent.hpp"
+#include "libslic3r/ForgeAccount.hpp"
+#include "libslic3r/AppConfig.hpp"
+#include "slic3r/GUI/GUI_App.hpp"
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
@@ -48,8 +51,11 @@ std::unique_ptr<httplib::Client> make_client(const std::string& server_url) {
 
 httplib::Headers auth_headers(const std::string& token) {
     if (token.empty()) return {};
+    // The 3DPrintForge Server issues a bambu_session cookie on login; it also
+    // accepts an API token as a Bearer header. Send both so either auth mode
+    // (session login OR configured API token) works.
     return { { "Authorization", "Bearer " + token },
-             { "Cookie",       "forge_session=" + token } };
+             { "Cookie",       "bambu_session=" + token } };
 }
 
 } // namespace
@@ -63,44 +69,65 @@ ForgeCloudAgent::~ForgeCloudAgent() = default;
 void ForgeCloudAgent::set_server_url(const std::string& url)
 {
     m_server_url = url;
-    m_auth.signed_in = false;
-    m_auth.session_token.clear();
+    m_auth = ForgeAuthState{};
+    // Reuse a previously stored login session so fleet/inventory calls are
+    // authenticated after the user signs in once on the home page.
+    if (AppConfig* cfg = GUI::wxGetApp().app_config) {
+        const std::string tok = cfg->get("forge_session_token");
+        if (!tok.empty()) {
+            m_auth.session_token = tok;
+            m_auth.username      = cfg->get("forge_account_user");
+            m_auth.signed_in     = true;
+            m_auth.server_url    = url;
+        }
+    }
 }
 
-bool ForgeCloudAgent::login(const std::string& username, const std::string& password)
+bool ForgeCloudAgent::login(const std::string& username, const std::string& password,
+                            const std::string& totp_code)
 {
+    m_auth.totp_required = false;
+    m_auth.last_error.clear();
+
     auto cli = make_client(m_server_url);
     json body = { { "username", username }, { "password", password } };
+    if (!totp_code.empty())
+        body["totp_code"] = totp_code;
     auto res = cli->Post("/api/auth/login", body.dump(), "application/json");
     if (!res) {
         m_auth.last_error = "Cannot reach 3DPrintForge Server at " + m_server_url;
         return false;
     }
-    if (res->status != 200) {
-        m_auth.last_error = "Login rejected (HTTP " + std::to_string(res->status) + ")";
+
+    const ForgeLoginOutcome outcome = interpret_login_response(res->status, res->body);
+    switch (outcome.status) {
+    case ForgeLoginStatus::Success:
+        break;
+    case ForgeLoginStatus::TotpRequired:
+        m_auth.totp_required = true;
+        m_auth.last_error = outcome.error.empty() ? "Two-factor code required" : outcome.error;
+        return false;
+    case ForgeLoginStatus::BadCredentials:
+        m_auth.last_error = outcome.error.empty() ? "Invalid username or password" : outcome.error;
+        return false;
+    case ForgeLoginStatus::RateLimited:
+        m_auth.last_error = outcome.error.empty() ? "Too many attempts; try again later" : outcome.error;
+        return false;
+    case ForgeLoginStatus::ServerError:
+        m_auth.last_error = outcome.error.empty() ? "Server error" : outcome.error;
+        return false;
+    default:
+        m_auth.last_error = "Login failed (HTTP " + std::to_string(res->status) + ")";
         return false;
     }
 
-    try {
-        auto j = json::parse(res->body);
-        if (j.contains("token"))     m_auth.session_token = j["token"].get<std::string>();
-        if (j.contains("username"))  m_auth.username      = j["username"].get<std::string>();
-        // Cookie-based session is also acceptable.
-        if (m_auth.session_token.empty()) {
-            auto it = res->headers.find("Set-Cookie");
-            if (it != res->headers.end()) {
-                std::regex re(R"(forge_session=([^;]+))");
-                std::smatch m;
-                std::string h = it->second;
-                if (std::regex_search(h, m, re)) m_auth.session_token = m[1].str();
-            }
-        }
-    } catch (...) {
-        m_auth.last_error = "Server returned malformed JSON";
-        return false;
-    }
+    // Success: the session lives in the Set-Cookie: bambu_session=... header.
+    auto it = res->headers.find("Set-Cookie");
+    if (it != res->headers.end())
+        m_auth.session_token = extract_session_cookie(it->second);
 
     m_auth.signed_in = true;
+    m_auth.username   = username;
     m_auth.server_url = m_server_url;
     m_last_synced = std::chrono::steady_clock::now();
     BOOST_LOG_TRIVIAL(info) << "ForgeCloudAgent: signed in as " << m_auth.username;

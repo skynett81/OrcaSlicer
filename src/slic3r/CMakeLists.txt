@@ -28,6 +28,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/ForgeColorLayerDialog.hpp
     GUI/ForgeCalibrationDialog.cpp
     GUI/ForgeCalibrationDialog.hpp
+    GUI/ForgeAccountDialog.cpp
+    GUI/ForgeAccountDialog.hpp
     GUI/ForgeCloud.cpp
     GUI/ForgeCloud.hpp
     GUI/ForgeCloudSettingsDialog.cpp

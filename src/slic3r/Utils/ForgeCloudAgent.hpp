@@ -72,6 +72,7 @@ struct ForgeLiveState {
 // Authentication / connection state to 3DPrintForge Server.
 struct ForgeAuthState {
     bool        signed_in = false;
+    bool        totp_required = false; // last login needs a TOTP code (retry with one)
     std::string server_url;
     std::string session_token;
     std::string username;
@@ -89,7 +90,11 @@ public:
     void set_server_url(const std::string& url);
     std::string server_url() const { return m_server_url; }
 
-    bool login(const std::string& username, const std::string& password);
+    // Sign in against POST /api/auth/login. Pass a TOTP code on retry when the
+    // previous attempt set auth_state().totp_required. Returns true on success;
+    // on failure, auth_state() carries last_error and totp_required.
+    bool login(const std::string& username, const std::string& password,
+               const std::string& totp_code = std::string());
     void logout();
     bool is_signed_in() const { return m_auth.signed_in; }
     const ForgeAuthState& auth_state() const { return m_auth; }
