@@ -47,6 +47,7 @@
 #include "ForgeCloudSettingsDialog.hpp"
 #include "ForgeOnboardingDialog.hpp"
 #include "ForgeColorLayerDialog.hpp"
+#include "ForgeCalibrationDialog.hpp"
 #include "ForgeFleetPanel.hpp"
 // BBS
 #include "PartPlate.hpp"
@@ -3506,6 +3507,15 @@ void MainFrame::init_menubar_as_editor()
         }, "", nullptr,
         [this]() {return m_plater->is_view3D_shown();; }, this);
 
+    m_topbar->GetCalibMenu()->AppendSeparator();
+    // 3DPrintForge: brand-agnostic fleet calibration memory.
+    append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Fleet Calibration..."),
+                     _L("Saved calibration for the active printer + filament (3DPrintForge)"),
+                     [this](wxCommandEvent &) {
+                         ForgeCalibrationDialog dlg(this);
+                         dlg.ShowModal();
+                     }, "", nullptr, [this]() {return m_plater->is_view3D_shown();; }, this);
+
     // help
     append_menu_item(m_topbar->GetCalibMenu(), wxID_ANY, _L("Calibration Guide"), _L("Calibration Guide"), [this](wxCommandEvent &)
                      { wxLaunchDefaultBrowser("https://skynett81.github.io/3dprintforge/docs/calibration/calibration_guide", wxBROWSER_NEW_WINDOW); }, "", nullptr, [this]()
@@ -3616,6 +3626,16 @@ void MainFrame::init_menubar_as_editor()
             if (!m_vfa_test_dlg)
                 m_vfa_test_dlg = new VFA_Test_Dlg((wxWindow*)this, wxID_ANY, m_plater);
             m_vfa_test_dlg->ShowModal();
+        }, "", nullptr,
+        [this]() {return m_plater->is_view3D_shown();; }, this);
+
+    calib_menu->AppendSeparator();
+    // 3DPrintForge: brand-agnostic fleet calibration memory.
+    append_menu_item(calib_menu, wxID_ANY, _L("Fleet Calibration..."),
+        _L("Saved calibration for the active printer + filament (3DPrintForge)"),
+        [this](wxCommandEvent&) {
+            ForgeCalibrationDialog dlg(this);
+            dlg.ShowModal();
         }, "", nullptr,
         [this]() {return m_plater->is_view3D_shown();; }, this);
     // help

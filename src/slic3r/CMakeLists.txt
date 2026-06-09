@@ -26,6 +26,8 @@ set(SLIC3R_GUI_SOURCES
     GUI/ForgeLibraryDialog.hpp
     GUI/ForgeColorLayerDialog.cpp
     GUI/ForgeColorLayerDialog.hpp
+    GUI/ForgeCalibrationDialog.cpp
+    GUI/ForgeCalibrationDialog.hpp
     GUI/ForgeCloud.cpp
     GUI/ForgeCloud.hpp
     GUI/ForgeCloudSettingsDialog.cpp
@@ -606,6 +608,8 @@ set(SLIC3R_GUI_SOURCES
     Utils/ForgeCloudAgent.hpp
     Utils/InventoryProvider.cpp
     Utils/InventoryProvider.hpp
+    Utils/ForgeCalibrationProvider.cpp
+    Utils/ForgeCalibrationProvider.hpp
     Utils/ColorSpaceConvert.cpp
     Utils/ColorSpaceConvert.hpp
     Utils/CrealityPrint.cpp
