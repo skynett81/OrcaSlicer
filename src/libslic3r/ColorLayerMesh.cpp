@@ -68,4 +68,44 @@ indexed_triangle_set its_from_heightmap(const std::vector<float>& heights_mm,
     return indexed_triangle_set(idx, verts); // ctor sizes face properties
 }
 
+static bool same_color(const ColorLayerFilament& a, const ColorLayerFilament& b)
+{
+    return a.r == b.r && a.g == b.g && a.b == b.b;
+}
+
+ColorLayerResult generate_color_layer(const std::vector<ColorLayerRGB>& targets,
+                                      int W, int H, const ColorLayerParams& params)
+{
+    ColorLayerResult res;
+    if (W < 2 || H < 2 || (int)targets.size() != W * H ||
+        params.layer_schedule.empty() || params.layer_height_mm <= 0.0f || params.pixel_mm <= 0.0f)
+        return res;
+
+    const int   base_layers = params.base_layers < 0 ? 0 : params.base_layers;
+    const float lh          = params.layer_height_mm;
+    res.max_relief_layers   = (int)params.layer_schedule.size();
+
+    // Reproducible colour ramp for the relief layers.
+    const std::vector<ColorLayerRGB> palette =
+        height_palette(params.layer_schedule, params.base, lh);
+
+    // Map each pixel to a relief height, then to an absolute top-z (base + relief).
+    std::vector<float> heights_mm(targets.size());
+    for (size_t i = 0; i < targets.size(); ++i) {
+        const int h = pick_height(targets[i], palette); // 0..max_relief_layers
+        heights_mm[i] = (float)(base_layers + h) * lh;
+    }
+
+    res.mesh = its_from_heightmap(heights_mm, W, H, params.pixel_mm);
+
+    // Filament-change layers: where the schedule's colour changes, at the global
+    // layer index (offset by the solid base beneath the relief).
+    for (int i = 1; i < (int)params.layer_schedule.size(); ++i)
+        if (!same_color(params.layer_schedule[i], params.layer_schedule[i - 1]))
+            res.color_change_layers.push_back(base_layers + i);
+
+    res.ok = !res.mesh.vertices.empty();
+    return res;
+}
+
 } // namespace Slic3r

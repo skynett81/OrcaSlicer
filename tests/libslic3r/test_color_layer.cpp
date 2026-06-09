@@ -154,6 +154,44 @@ TEST_CASE("its_from_heightmap: counts + max height scale with the grid", "[Color
     REQUIRE_THAT(zmax, WithinAbs(7.0, 1e-4));
 }
 
+TEST_CASE("generate_color_layer ties image -> mesh + colour-change layers", "[ColorLayer]")
+{
+    // 3x3 target image, schedule = 4 black layers then 4 white layers (one swap).
+    const int W = 3, H = 3;
+    std::vector<ColorLayerRGB> targets(W * H, ColorLayerRGB{0, 0, 0});
+    targets[4] = ColorLayerRGB{255, 255, 255}; // bright centre pixel -> tall
+
+    ColorLayerParams params;
+    ColorLayerFilament black{0, 0, 0, 0.25}, white{255, 255, 255, 0.25};
+    params.layer_schedule = {black, black, black, black, white, white, white, white};
+    params.base = ColorLayerRGB{0, 0, 0};
+    params.layer_height_mm = 0.2f;
+    params.pixel_mm = 1.0f;
+    params.base_layers = 3;
+
+    auto r = generate_color_layer(targets, W, H, params);
+    REQUIRE(r.ok);
+    REQUIRE_FALSE(r.mesh.vertices.empty());
+    REQUIRE(r.max_relief_layers == 8);
+    // One colour swap (black->white) at schedule index 4 -> global layer base+4 = 7.
+    REQUIRE(r.color_change_layers == std::vector<int>{7});
+
+    // The mesh is a valid solid.
+    TriangleMesh mesh(r.mesh);
+    REQUIRE_FALSE(mesh.empty());
+    REQUIRE(mesh.volume() > 0.0);
+}
+
+TEST_CASE("generate_color_layer rejects invalid input", "[ColorLayer]")
+{
+    ColorLayerParams p;
+    p.layer_schedule = { {0,0,0,0.25} };
+    REQUIRE_FALSE(generate_color_layer({}, 0, 0, p).ok);              // empty
+    std::vector<ColorLayerRGB> t(4);
+    ColorLayerParams empty_sched; // no schedule
+    REQUIRE_FALSE(generate_color_layer(t, 2, 2, empty_sched).ok);
+}
+
 TEST_CASE("best_layer_count picks the closest stack and prefers fewer layers", "[ColorLayer]")
 {
     ColorLayerRGB base{0, 0, 0};
