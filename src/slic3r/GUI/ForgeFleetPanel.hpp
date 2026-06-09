@@ -45,6 +45,7 @@ private:
     void on_print(wxCommandEvent& evt);
     void on_add_printer(wxCommandEvent& evt);
     void on_remove_printer(wxCommandEvent& evt);
+    void on_use_for_slicing(wxCommandEvent& evt);
     void on_timer(wxTimerEvent& evt);
 
     void refresh_printer_list();
@@ -65,6 +66,7 @@ private:
     wxButton*     m_btn_print      = nullptr;
     wxButton*     m_btn_add        = nullptr;
     wxButton*     m_btn_remove     = nullptr;
+    wxButton*     m_btn_use        = nullptr;
     wxStaticText* m_detail_label   = nullptr;
     wxStaticBitmap* m_camera       = nullptr;
     wxButton*     m_btn_pause       = nullptr;

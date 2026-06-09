@@ -6,9 +6,13 @@
 #include "MainFrame.hpp"
 #include "Plater.hpp"
 #include "PartPlate.hpp"
+#include "Tab.hpp"
 #include "libslic3r/Format/bbs_3mf.hpp"
+#include "libslic3r/PresetBundle.hpp"
+#include "libslic3r/ForgePrinterMatch.hpp"
 
 #include <boost/filesystem.hpp>
+#include <deque>
 
 #include <wx/utils.h>
 
@@ -121,9 +125,11 @@ void ForgeFleetPanel::build_ui()
     btn_row->Add(m_btn_refresh, 0, wxRIGHT, 4);
     btn_row->Add(m_btn_configure, 0);
     leftcol->Add(btn_row, 0, wxTOP, FromDIP(4));
+    m_btn_use = new wxButton(this, wxID_ANY, _L("Use for slicing"));
     auto* btn_row2 = new wxBoxSizer(wxHORIZONTAL);
     btn_row2->Add(m_btn_add,    0, wxRIGHT, 4);
-    btn_row2->Add(m_btn_remove, 0);
+    btn_row2->Add(m_btn_remove, 0, wxRIGHT, 4);
+    btn_row2->Add(m_btn_use,    0);
     leftcol->Add(btn_row2, 0, wxTOP, FromDIP(4));
     leftcol->Add(m_btn_print, 0, wxTOP, FromDIP(4));
     body->Add(leftcol, 0, wxEXPAND | wxRIGHT, FromDIP(10));
@@ -325,6 +331,7 @@ void ForgeFleetPanel::build_ui()
     m_btn_print    ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_print, this);
     m_btn_add      ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_add_printer, this);
     m_btn_remove   ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_remove_printer, this);
+    m_btn_use      ->Bind(wxEVT_BUTTON, &ForgeFleetPanel::on_use_for_slicing, this);
     m_list->Bind(wxEVT_LIST_ITEM_SELECTED, &ForgeFleetPanel::on_select, this);
     m_btn_pause ->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){ send_control("pause"); });
     m_btn_resume->Bind(wxEVT_BUTTON, [this](wxCommandEvent&){ send_control("resume"); });
@@ -798,6 +805,34 @@ void ForgeFleetPanel::on_remove_printer(wxCommandEvent& /*evt*/)
                                       wxString::FromUTF8(m_agent->auth_state().last_error)),
                      _L("Remove printer"), wxICON_ERROR);
     }
+}
+
+void ForgeFleetPanel::on_use_for_slicing(wxCommandEvent& /*evt*/)
+{
+    long sel = m_list->GetNextItem(-1, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+    if (sel < 0 || sel >= (long)m_printers.size()) {
+        wxMessageBox(_L("Pick a printer first."), _L("3DPrintForge Devices"), wxICON_INFORMATION);
+        return;
+    }
+    const ForgePrinter& fp = m_printers[sel];
+
+    // Match the selected fleet printer to an installed printer preset and make it
+    // the active slicing printer — so the fleet list doubles as printer selection.
+    std::vector<std::string> names;
+    const std::deque<Preset>& presets = wxGetApp().preset_bundle->printers.get_presets();
+    for (const Preset& p : presets)
+        if (p.is_visible)
+            names.push_back(p.name);
+
+    const std::string match = match_fleet_printer_preset(fp.vendor, fp.model, names);
+    if (match.empty()) {
+        wxMessageBox(_L("No matching printer profile is installed yet — click Refresh to auto-install it first."),
+                     _L("3DPrintForge Devices"), wxICON_INFORMATION);
+        return;
+    }
+    if (Tab* tab = wxGetApp().get_tab(Preset::TYPE_PRINTER))
+        tab->select_preset(match);
+    update_status_bar("Slicer printer set to " + match);
 }
 
 void ForgeFleetPanel::refresh_printer_list()
