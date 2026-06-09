@@ -86,6 +86,7 @@
 #include "GUI_Utils.hpp"
 #include "3DScene.hpp"
 #include "MainFrame.hpp"
+#include "ForgeCloudSettingsDialog.hpp"
 #include "Plater.hpp"
 #include "GLCanvas3D.hpp"
 #include "EncodedFilament.hpp"
@@ -4558,6 +4559,23 @@ std::string GUI_App::handle_web_request(std::string cmd)
         boost::optional<std::string> command = root.get_optional<std::string>("command");
         if (command.has_value()) {
             std::string command_str = command.value();
+
+            // 3DPrintForge: the front-page account "Login / Register" targets the
+            // user's OWN 3DPrintForge Server (which may be on another machine), not
+            // the Bambu/Orca cloud. Route it to our connection dialog — that is
+            // where the server address + token live, i.e. signing in to the server.
+            // The server is the user's own host, so the Bambu stealth-mode/network
+            // consent gate does not apply here.
+            if (command_str == "homepage_login_or_register") {
+                CallAfter([this] {
+                    ForgeCloudSettingsDialog dlg(mainframe);
+                    dlg.ShowModal();
+                    if (mainframe && mainframe->m_webview)
+                        mainframe->m_webview->SendCloudProvidersInfo();
+                });
+                return "";
+            }
+
             static const std::unordered_set<std::string> stealth_blocked_info_commands = {
                 "get_login_info",
                 "get_orca_login_info",
