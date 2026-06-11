@@ -2195,6 +2195,12 @@ wxBoxSizer* MainFrame::create_side_tools()
                     this->Layout();
                     fit_tab_labels(); // ORCA on label change
                     p->Dismiss();
+                    // Unlike the persistent-mode siblings, "Send to 3DPrintForge"
+                    // is a one-shot action: fire it immediately so the user does
+                    // not have to also click the main button (a confusing extra
+                    // step). The mode is still set so a later main-button click
+                    // repeats the send.
+                    Slic3r::GUI::forge_pick_printer_and_send();
                 });
                 p->append_button(send_forge_btn);
             }
